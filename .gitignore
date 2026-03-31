@@ -1,0 +1,35 @@
+# dependencies
+node_modules/
+
+# next.js
+.next/
+out/
+
+# build artifacts
+dist/
+coverage/
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# local databases
+dev.db
+dev.db-*
+prisma/dev.db
+prisma/dev.db-*
+
+# misc
+.DS_Store

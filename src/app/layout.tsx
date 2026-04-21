@@ -6,7 +6,21 @@ import "@/app/globals.css";
 
 export const metadata: Metadata = {
   title: "Liftlytics",
-  description: "Strength training progress tracker for logging sessions and reviewing progress."
+  description: "Strength training progress tracker for logging sessions and reviewing progress.",
+  applicationName: "Liftlytics",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: "/icon.svg",
+    apple: "/icon.svg"
+  },
+  appleWebApp: {
+    capable: true,
+    title: "Liftlytics",
+    statusBarStyle: "black-translucent"
+  },
+  formatDetection: {
+    telephone: false
+  }
 };
 
 export default function RootLayout({

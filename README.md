@@ -1,207 +1,255 @@
 # Liftlytics
 
-**A sharp, local-first strength training tracker for people who actually lift.**
+**A sharp strength training tracker built for fast gym logging, hosted web access, and a future native mobile app.**
 
-Liftlytics is built for one job: make logging workouts fast enough to use every day, then turn that data into useful strength insights you will actually check. No signup wall. No cloud dependency. No bloated wellness fluff. Just sessions, sets, progression, and clean analytics.
+Liftlytics is designed around one core idea: logging workouts should be fast enough to do between sets, and the analytics should be useful enough to actually change how you train.
 
-If you want a personal gym log that feels like a real product instead of a spreadsheet with buttons, this is the project.
+The current version is a server-hosted Next.js app with Postgres, basic authentication, PWA support, and a deliberately separated domain layer so iOS and Android apps can later reuse the same business logic.
 
 ## Why Liftlytics
 
-Most fitness apps optimize for breadth.
-Liftlytics optimizes for repeat use.
+Most fitness apps try to do everything. Liftlytics focuses on strength progression:
 
-That means:
+- fast workout logging
+- clean session history
+- estimated 1RM tracking
+- volume trends
+- PR detection
+- milestone suggestions
+- local-first native mobile path later
+- optional server sync path later
 
-- fast session logging
-- low-friction editing
-- clear strength KPIs
-- useful charts
-- local SQLite persistence
-- a clean codebase that is easy to extend
+## Current Architecture
 
-## What makes it interesting
+```text
+src/domain
+  Pure business logic, types, validation, analytics, seed definitions
 
-- **Local-first by default**: your data lives with you
-- **Built for lifters**: warm-up sets are excluded from PR math and KPI logic
-- **Actually useful analytics**: estimated 1RM, volume trends, PR detection, momentum, milestone suggestions
-- **Strong MVP scope**: daily use comes first, social or shareable features come later
-- **Open-source friendly**: clear structure, TypeScript throughout, business logic separated from UI
+src/server/repositories
+  Storage abstraction and Prisma/Postgres implementation
 
-## Core features
+src/server/services
+  Application use cases such as creating sessions and loading analytics data
 
-- Dashboard with:
-  - total sessions
-  - total volume lifted
-  - total exercises logged
-  - recent PR count
-  - workout frequency chart
-  - training volume chart
-  - recent sessions
-  - top improving exercises
-- Fast workout logging flow:
-  - create a new session
-  - add exercises from a searchable list
-  - create new exercises inline
-  - log reps, weight, set notes, and warm-up flags
-  - reorder exercises
-  - edit or remove sets quickly
-- Session history:
-  - browse all sessions
-  - filter by exercise
-  - filter by date range
-  - inspect full session details
-  - edit and delete sessions
-- Exercise detail pages:
-  - PRs
-  - estimated 1RM trend
-  - best set history
-  - volume over time
-  - session count
-  - recent performances
-  - notes history
+src/app
+  Next.js routes, pages, API handlers, and hosted web UI
+```
 
-## Analytics that matter
+The important rule is:
 
-All KPI and progression logic lives in [src/lib/analytics.ts](/home/raffael/workspace/Github/Liftlytics/src/lib/analytics.ts).
+```text
+UI can change.
+Storage can change.
+Business logic should not.
+```
 
-Implemented in v1:
+That means a future Expo mobile app can reuse `src/domain` logic and replace the web storage implementation with a phone-local SQLite repository.
 
-- Estimated 1RM with Epley formula
-  - `1RM = weight * (1 + reps / 30)`
-- Best estimated 1RM all time
-- Best weight ever lifted
+## What “Repository / Service Layer” Means
+
+If you come from embedded development, think of it like this:
+
+- **Domain layer**: pure algorithms and data structures, similar to platform-independent control logic
+- **Repository interface**: a storage abstraction, similar to a driver interface or HAL
+- **Prisma repository**: the concrete Postgres driver implementation
+- **Service layer**: application orchestration, similar to code that validates commands, calls the right driver, and returns a clean result
+- **UI/API routes**: presentation and transport only
+
+Today:
+
+```text
+Next.js UI -> WorkoutService -> WorkoutRepository interface -> Prisma/Postgres
+```
+
+Later on mobile:
+
+```text
+Expo UI -> WorkoutService -> WorkoutRepository interface -> phone SQLite
+```
+
+The app behavior stays consistent because both implementations obey the same repository contract.
+
+## Core Features
+
+- Dashboard with sessions, volume, unique exercises, recent PRs, frequency charts, volume charts, recent sessions, and improving exercises
+- Fast workout logging with searchable exercises, inline exercise creation, compact set tables, warm-up flags, notes, and exercise ordering
+- Session history with exercise and date filters
+- Session detail pages with editing, deletion, clear set display, and PR badges
+- Exercise library with dedicated analytics pages
+- Exercise analytics with estimated 1RM trends, best set history, total volume, recent performances, and notes history
+- Basic HTTP authentication for private hosted use
+- PWA manifest for install-like behavior on mobile browsers
+
+## Analytics
+
+Core strength logic lives in [`src/domain/analytics.ts`](src/domain/analytics.ts).
+
+Implemented:
+
+- Estimated 1RM using Epley formula: `weight * (1 + reps / 30)`
+- Set volume: `weight * reps`
+- Best estimated 1RM
+- Best weight lifted
 - Best single-set volume
-- Total lifetime volume
+- Lifetime volume
 - Average reps at repeated working weights
 - Session count
 - Last performed date
-- Training consistency by active weeks
+- Consistency by active training weeks
 - Current projected 1RM from the last 30 days
-- All-time projected 1RM
-- Recent momentum using last 30 days vs previous 30 days
-- Rep PR and weight PR detection
-- Suggested next milestone based on recent best working set
+- Recent momentum comparing last 30 days vs previous 30 days
+- Rep PR, weight PR, estimated 1RM PR, and volume PR detection
+- Simple next milestone suggestions
 
-Important:
+Warm-up sets are excluded from PR and KPI calculations by default.
 
-- warm-up sets are excluded from PR and KPI calculations by default
-- charts and badges are designed to be informative, not decorative
-
-## Tech stack
+## Tech Stack
 
 - Next.js 14 App Router
 - TypeScript
 - Tailwind CSS
-- shadcn/ui-style component structure
+- shadcn/ui-style components
 - Recharts
-- SQLite
 - Prisma
+- Postgres
 - date-fns
 
-## Quick start
+## Quick Start
+
+1. Copy the environment file:
 
 ```bash
 cp .env.example .env
+```
+
+2. Start Postgres:
+
+```bash
+docker compose up -d postgres
+```
+
+3. Install dependencies and prepare the database:
+
+```bash
 npm install
 npx prisma generate
 npm run db:setup
+```
+
+4. Start the app:
+
+```bash
 npm run dev
 ```
 
-Then open `http://localhost:3000`.
+Open `http://localhost:3000`.
 
-## Seeded demo data
+Default basic auth from `.env.example`:
 
-If the database is empty, Liftlytics seeds example sessions and common exercises so the charts and KPI views are useful immediately.
+```text
+username: admin
+password: change-me-before-deploy
+```
 
-Included exercises:
+Change those values before deploying publicly.
 
-- Bench Press
-- Incline Bench Press
-- Squat
-- Deadlift
-- Overhead Press
-- Pull-Up
-- Barbell Row
-- Lat Pulldown
-- Leg Press
-- Romanian Deadlift
-- Dumbbell Curl
-- Triceps Pushdown
-- Lateral Raise
+## Deployment Shape
 
-## Project structure
+The intended hosted setup is:
 
-- [prisma/schema.prisma](/home/raffael/workspace/Github/Liftlytics/prisma/schema.prisma): database schema
-- [prisma/migrations/202603312140_init/migration.sql](/home/raffael/workspace/Github/Liftlytics/prisma/migrations/202603312140_init/migration.sql): initial SQL migration
-- [scripts/setup-db.ts](/home/raffael/workspace/Github/Liftlytics/scripts/setup-db.ts): local SQLite bootstrap
-- [src/lib/data.ts](/home/raffael/workspace/Github/Liftlytics/src/lib/data.ts): Prisma CRUD and queries
-- [src/lib/analytics.ts](/home/raffael/workspace/Github/Liftlytics/src/lib/analytics.ts): KPI logic and strength insights
-- [src/components/session/session-form.tsx](/home/raffael/workspace/Github/Liftlytics/src/components/session/session-form.tsx): workout logging and editing UI
-- [src/app/page.tsx](/home/raffael/workspace/Github/Liftlytics/src/app/page.tsx): dashboard
-- [src/app/exercises/[id]/page.tsx](/home/raffael/workspace/Github/Liftlytics/src/app/exercises/[id]/page.tsx): exercise analytics page
+```text
+Next.js server
+Postgres database
+Basic auth for private use
+HTTPS reverse proxy or platform TLS
+```
+
+For production, set:
+
+```text
+DATABASE_URL
+BASIC_AUTH_USERNAME
+BASIC_AUTH_PASSWORD
+```
+
+Use:
+
+```bash
+npm run build
+npm run start
+```
+
+or build the included Dockerfile.
+
+## Project Structure
+
+- [`src/domain/types.ts`](src/domain/types.ts): framework-independent domain types
+- [`src/domain/analytics.ts`](src/domain/analytics.ts): strength KPI logic
+- [`src/domain/validation.ts`](src/domain/validation.ts): shared validation schemas
+- [`src/server/repositories/workout-repository.ts`](src/server/repositories/workout-repository.ts): storage interface
+- [`src/server/repositories/prisma-workout-repository.ts`](src/server/repositories/prisma-workout-repository.ts): Prisma/Postgres implementation
+- [`src/server/services/workout-service.ts`](src/server/services/workout-service.ts): application use cases
+- [`src/lib/data.ts`](src/lib/data.ts): compatibility facade for pages and routes
+- [`prisma/schema.prisma`](prisma/schema.prisma): Postgres data model
+- [`docker-compose.yml`](docker-compose.yml): local Postgres
+- [`Dockerfile`](Dockerfile): production container build
 
 ## Scripts
 
-- `npm run dev` starts the app in development
-- `npm run build` builds the production app
-- `npm run start` serves the production build
-- `npm run lint` runs ESLint
-- `npm run prisma:generate` regenerates Prisma client
-- `npm run prisma:migrate` runs Prisma migrations
-- `npm run prisma:seed` seeds example data
-- `npm run db:setup` creates the local SQLite schema and seeds data
+- `npm run dev`: start development server
+- `npm run build`: build production app
+- `npm run start`: serve production app
+- `npm run lint`: run ESLint
+- `npm run prisma:generate`: generate Prisma client
+- `npm run prisma:migrate`: create/apply development migrations
+- `npm run prisma:seed`: seed example exercises and sessions
+- `npm run db:setup`: apply migrations and seed data
 
-## Contributing
+## Future Native App Path
 
-Contributions are very welcome, especially if you care about:
+The planned mobile architecture is:
 
-- strength training workflows
-- data modeling for exercise tracking
-- polished UI/UX
-- analytics and visualization
-- keyboard-friendly input flows
-- export/import and local-first tooling
+```text
+apps/mobile
+  Expo React Native app
+  local SQLite database
+  optional sync client
 
-Good first areas to contribute:
+packages/domain or src/domain
+  shared analytics
+  shared validation
+  shared types
 
-- exercise templates and saved workout splits
-- better mobile logging ergonomics
-- CSV export/import
-- richer progression comparisons
-- test coverage for analytics logic
-- more robust PR explanation UI
+server
+  hosted sync API
+  account auth
+  Postgres cloud copy
+```
 
-If you open an issue or PR:
-
-- keep the core product focused on logging and progress review
-- prefer practical features over novelty features
-- keep analytics logic centralized instead of spreading calculations through components
-- preserve the low-friction feel of the logging flow
-
-## Why star this project
-
-If this repo is interesting to you, a star helps in three ways:
-
-- it makes the project easier for other lifters and builders to discover
-- it signals that focused, local-first fitness tools are worth building
-- it creates momentum for more contributors to jump in
+The mobile app should work fully without an account. If users opt in later, sync can upload local data to the server and keep devices aligned.
 
 ## Roadmap
 
-Planned next steps:
+- Hosted deployment hardening
+- Mobile logging polish
+- Real account auth
+- User-owned data model
+- Export and backup
+- Offline-first native Expo app
+- Optional sync
+- Shareable progress cards
+- Test coverage for analytics and repository behavior
 
-- shareable progress cards
-- workout templates
-- import/export
-- PWA support
-- richer comparisons across time windows
-- optional sync without sacrificing local-first usage
+## Contributing
 
-## Current status
+Contributions are welcome, especially around:
 
-Liftlytics is already usable as a real personal strength log.
-The current MVP is aimed at solo daily use first, then thoughtful expansion into a stronger open-source fitness tracking project.
+- workout logging UX
+- local-first mobile architecture
+- strength analytics
+- sync design
+- Postgres deployment
+- test coverage
+- charts and data visualization
 
-If that resonates, star it, open an issue, or ship a feature.
+If this project resonates, star it, open an issue, or ship a focused improvement.

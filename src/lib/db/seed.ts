@@ -1,5 +1,5 @@
 import { PrismaClient } from "@prisma/client";
-import { exerciseSeeds, getSampleSessions } from "../seed-data";
+import { exerciseSeeds, getSampleSessions } from "@/domain/seed-data";
 
 export async function seedDatabase(prisma: PrismaClient) {
   for (const exercise of exerciseSeeds) {

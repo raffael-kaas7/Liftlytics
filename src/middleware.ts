@@ -1,43 +1,43 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { AUTH_COOKIE_NAME, authIsConfigured, getExpectedAuthTokens } from "@/lib/auth";
 
-function unauthorized() {
-  return new NextResponse("Authentication required", {
-    status: 401,
-    headers: {
-      "WWW-Authenticate": 'Basic realm="Liftlytics"'
-    }
-  });
+function isPublicPath(pathname: string) {
+  return (
+    pathname === "/login" ||
+    pathname.startsWith("/api/auth/") ||
+    pathname === "/manifest.webmanifest" ||
+    pathname === "/icon.svg" ||
+    pathname === "/favicon.ico"
+  );
 }
 
 function isAuthorized(request: NextRequest) {
-  const username = process.env.BASIC_AUTH_USERNAME;
-  const password = process.env.BASIC_AUTH_PASSWORD;
-
-  if (!username || !password) {
+  if (!authIsConfigured()) {
     return true;
   }
 
-  const authHeader = request.headers.get("authorization");
-  if (!authHeader?.startsWith("Basic ")) {
-    return false;
-  }
-
-  const decoded = atob(authHeader.slice("Basic ".length));
-  const separatorIndex = decoded.indexOf(":");
-  const providedUsername = decoded.slice(0, separatorIndex);
-  const providedPassword = decoded.slice(separatorIndex + 1);
-
-  return providedUsername === username && providedPassword === password;
+  const sessionToken = request.cookies.get(AUTH_COOKIE_NAME)?.value;
+  return Boolean(sessionToken && getExpectedAuthTokens().includes(sessionToken));
 }
 
 export function middleware(request: NextRequest) {
-  if (!isAuthorized(request)) {
-    return unauthorized();
-  }
-
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-pathname", request.nextUrl.pathname);
+
+  if (request.nextUrl.pathname === "/login" && isAuthorized(request)) {
+    return NextResponse.redirect(new URL("/", request.url));
+  }
+
+  if (!isPublicPath(request.nextUrl.pathname) && !isAuthorized(request)) {
+    if (request.nextUrl.pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    }
+
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("next", request.nextUrl.pathname + request.nextUrl.search);
+    return NextResponse.redirect(loginUrl);
+  }
 
   return NextResponse.next({
     request: {
@@ -47,5 +47,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|manifest.webmanifest).*)"]
+  matcher: ["/((?!_next/static|_next/image).*)"]
 };

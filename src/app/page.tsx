@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  calculateSetVolume,
+  RECENT_PR_WINDOW_DAYS,
+  countRecentPRs,
   deriveExercisePRs,
   getWeeklyFrequencyChart
 } from "@/lib/analytics";
@@ -17,9 +18,6 @@ import { flattenSessionPoints, summarizeSession } from "@/lib/selectors";
 export default async function DashboardPage() {
   const sessions = await getDashboardData();
   const points = flattenSessionPoints(sessions);
-  const totalVolume = points
-    .filter((point) => !point.isWarmup)
-    .reduce((sum, point) => sum + calculateSetVolume(point.weight, point.reps), 0);
 
   const sessionVolumeChart = sessions
     .slice()
@@ -47,12 +45,12 @@ export default async function DashboardPage() {
       };
     })
     .sort((a, b) => b.projected1RM - a.projected1RM)
-    .slice(0, 5);
+    .slice(0, 3);
 
-  const recentPRCount = [...groupedByExercise.values()].reduce((sum, exercisePoints) => {
-    const prs = deriveExercisePRs(exercisePoints);
-    return sum + prs.estimated1RMPRCount + prs.weightPRCount;
-  }, 0);
+  const recentPRCount = [...groupedByExercise.values()].reduce(
+    (sum, exercisePoints) => sum + countRecentPRs(exercisePoints),
+    0
+  );
 
   return (
     <div className="space-y-8">
@@ -62,9 +60,10 @@ export default async function DashboardPage() {
             <div className="space-y-4">
               <Badge variant="success" className="w-fit">Daily Strength Tracking</Badge>
               <div className="space-y-2">
-                <h1 className="max-w-2xl text-4xl font-semibold tracking-tight text-balance">Log fast. Train hard. See strength move.</h1>
+                <h1 className="max-w-2xl text-4xl font-semibold tracking-tight text-balance">Log fast. Train hard. Track your Progress.</h1>
                 <p className="max-w-2xl text-base text-muted-foreground">
-                  Liftlytics keeps sessions friction-free while surfacing the KPIs that matter: volume, estimated 1RM, PRs, and momentum.
+                  Track your training with Liftlytics to verify progressive overloading. See KPIs that support your training and recovery:
+                  volume, estimated 1RM, PRs, and momentum.
                 </p>
               </div>
             </div>
@@ -84,7 +83,7 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle>Training Snapshot</CardTitle>
-            <CardDescription>Working-set analytics update from your local SQLite log.</CardDescription>
+            <CardDescription>Working-set analytics from your hosted training log.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4">
             <div className="rounded-2xl border border-border/70 bg-muted/40 p-4">
@@ -93,6 +92,10 @@ export default async function DashboardPage() {
                 Recent PR count
               </div>
               <div className="mt-2 text-3xl font-semibold">{recentPRCount}</div>
+              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                Counts weight and estimated 1RM PRs set in the last {RECENT_PR_WINDOW_DAYS} days, measured against each
+                exercise&apos;s full prior history. Warm-up sets are excluded.
+              </p>
             </div>
             <div className="rounded-2xl border border-border/70 bg-muted/40 p-4">
               <div className="flex items-center gap-3 text-sm text-muted-foreground">
@@ -105,17 +108,15 @@ export default async function DashboardPage() {
         </Card>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-4 md:grid-cols-2">
         <SummaryCard label="Total sessions" value={String(sessions.length)} helper="All logged gym sessions" />
-        <SummaryCard label="Total volume lifted" value={`${formatMetric(totalVolume)} kg`} helper="Working sets only" />
         <SummaryCard label="Exercises logged" value={String(groupedByExercise.size)} helper="Unique exercises tracked" />
-        <SummaryCard label="Recent PR count" value={String(recentPRCount)} helper="Weight and 1RM PR moments" />
       </section>
 
       <section className="grid gap-6 xl:grid-cols-2">
         <ChartCard
           title="Workout Frequency"
-          description="Sessions logged over time"
+          description="Sessions logged per calendar week"
           type="bar"
           data={getWeeklyFrequencyChart(sessions.map((session) => session.date))}
           xKey="label"

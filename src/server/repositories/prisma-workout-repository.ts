@@ -122,24 +122,36 @@ export class PrismaWorkoutRepository implements WorkoutRepository {
       const createdSession = await tx.workoutSession.create({
         data: {
           date: new Date(payload.date),
+          bodyWeight: payload.bodyWeight ?? undefined,
           notes: payload.notes || undefined
         }
       });
 
       for (const exercise of payload.exercises.sort((a, b) => a.orderIndex - b.orderIndex)) {
         const exerciseId = exercise.exerciseId
-          ? exercise.exerciseId
+          ? (
+              await tx.exercise.update({
+                where: { id: exercise.exerciseId },
+                data: {
+                  category: exercise.category || undefined,
+                  isCompound: exercise.isCompound ?? false,
+                  includeBodyWeightInVolume: exercise.includeBodyWeightInVolume ?? false
+                }
+              })
+            ).id
           : (
               await tx.exercise.upsert({
                 where: { name: exercise.exerciseName! },
                 update: {
                   category: exercise.category || undefined,
-                  isCompound: exercise.isCompound ?? false
+                  isCompound: exercise.isCompound ?? false,
+                  includeBodyWeightInVolume: exercise.includeBodyWeightInVolume ?? false
                 },
                 create: {
                   name: exercise.exerciseName!,
                   category: exercise.category || undefined,
-                  isCompound: exercise.isCompound ?? false
+                  isCompound: exercise.isCompound ?? false,
+                  includeBodyWeightInVolume: exercise.includeBodyWeightInVolume ?? false
                 }
               })
             ).id;
@@ -187,24 +199,36 @@ export class PrismaWorkoutRepository implements WorkoutRepository {
         where: { id },
         data: {
           date: new Date(payload.date),
+          bodyWeight: payload.bodyWeight ?? undefined,
           notes: payload.notes || undefined
         }
       });
 
       for (const exercise of payload.exercises.sort((a, b) => a.orderIndex - b.orderIndex)) {
         const exerciseId = exercise.exerciseId
-          ? exercise.exerciseId
+          ? (
+              await tx.exercise.update({
+                where: { id: exercise.exerciseId },
+                data: {
+                  category: exercise.category || undefined,
+                  isCompound: exercise.isCompound ?? false,
+                  includeBodyWeightInVolume: exercise.includeBodyWeightInVolume ?? false
+                }
+              })
+            ).id
           : (
               await tx.exercise.upsert({
                 where: { name: exercise.exerciseName! },
                 update: {
                   category: exercise.category || undefined,
-                  isCompound: exercise.isCompound ?? false
+                  isCompound: exercise.isCompound ?? false,
+                  includeBodyWeightInVolume: exercise.includeBodyWeightInVolume ?? false
                 },
                 create: {
                   name: exercise.exerciseName!,
                   category: exercise.category || undefined,
-                  isCompound: exercise.isCompound ?? false
+                  isCompound: exercise.isCompound ?? false,
+                  includeBodyWeightInVolume: exercise.includeBodyWeightInVolume ?? false
                 }
               })
             ).id;

@@ -1,12 +1,23 @@
 import { format, isAfter, isBefore, startOfDay, subDays } from "date-fns";
 import type { WorkingSetPoint } from "./types";
 
+export const RECENT_PR_WINDOW_DAYS = 30;
+
 export function calculateEstimated1RM(weight: number, reps: number) {
   return weight * (1 + reps / 30);
 }
 
-export function calculateSetVolume(weight: number, reps: number) {
-  return weight * reps;
+export function getSetVolumeLoad(weight: number, bodyWeight = 0, includeBodyWeightInVolume = false) {
+  return weight + (includeBodyWeightInVolume ? bodyWeight : 0);
+}
+
+export function calculateSetVolume(
+  weight: number,
+  reps: number,
+  bodyWeight = 0,
+  includeBodyWeightInVolume = false
+) {
+  return getSetVolumeLoad(weight, bodyWeight, includeBodyWeightInVolume) * reps;
 }
 
 export type ExercisePRs = {
@@ -29,7 +40,7 @@ export function deriveExercisePRs(points: WorkingSetPoint[]): ExercisePRs {
   const workingSets = points.filter((point) => !point.isWarmup);
   const sessions = new Set(workingSets.map((point) => point.sessionId));
   const now = new Date();
-  const recentBoundary = subDays(now, 30);
+  const recentBoundary = subDays(now, RECENT_PR_WINDOW_DAYS);
 
   let heaviestWeight = 0;
   let bestEstimated1RM = 0;
@@ -44,7 +55,12 @@ export function deriveExercisePRs(points: WorkingSetPoint[]): ExercisePRs {
 
   for (const point of workingSets) {
     const estimated1RM = calculateEstimated1RM(point.weight, point.reps);
-    const volume = calculateSetVolume(point.weight, point.reps);
+    const volume = calculateSetVolume(
+      point.weight,
+      point.reps,
+      point.sessionBodyWeight ?? 0,
+      point.includeBodyWeightInVolume ?? false
+    );
 
     heaviestWeight = Math.max(heaviestWeight, point.weight);
     bestEstimated1RM = Math.max(bestEstimated1RM, estimated1RM);
@@ -136,7 +152,12 @@ export function deriveExerciseTrendData(points: WorkingSetPoint[]) {
       bestWeight: 0,
       bestSetLabel: ""
     };
-    existing.volume += calculateSetVolume(point.weight, point.reps);
+    existing.volume += calculateSetVolume(
+      point.weight,
+      point.reps,
+      point.sessionBodyWeight ?? 0,
+      point.includeBodyWeightInVolume ?? false
+    );
     const estimated1RM = calculateEstimated1RM(point.weight, point.reps);
     if (estimated1RM > existing.bestEstimated1RM) {
       existing.bestEstimated1RM = estimated1RM;
@@ -161,10 +182,30 @@ export function deriveExerciseTrendData(points: WorkingSetPoint[]) {
 export function deriveMomentumMetrics(recentPoints: WorkingSetPoint[], previousPoints: WorkingSetPoint[]) {
   const recentVolume = recentPoints
     .filter((point) => !point.isWarmup)
-    .reduce((sum, point) => sum + calculateSetVolume(point.weight, point.reps), 0);
+    .reduce(
+      (sum, point) =>
+        sum +
+        calculateSetVolume(
+          point.weight,
+          point.reps,
+          point.sessionBodyWeight ?? 0,
+          point.includeBodyWeightInVolume ?? false
+        ),
+      0
+    );
   const previousVolume = previousPoints
     .filter((point) => !point.isWarmup)
-    .reduce((sum, point) => sum + calculateSetVolume(point.weight, point.reps), 0);
+    .reduce(
+      (sum, point) =>
+        sum +
+        calculateSetVolume(
+          point.weight,
+          point.reps,
+          point.sessionBodyWeight ?? 0,
+          point.includeBodyWeightInVolume ?? false
+        ),
+      0
+    );
 
   const recentBest = Math.max(
     0,
@@ -214,6 +255,41 @@ export function suggestNextMilestone(points: WorkingSetPoint[]) {
   };
 }
 
+export function countRecentPRs(points: WorkingSetPoint[], days = RECENT_PR_WINDOW_DAYS) {
+  const recentBoundary = subDays(new Date(), days);
+  const orderedSets = [...points]
+    .filter((point) => !point.isWarmup)
+    .sort((a, b) => a.sessionDate.getTime() - b.sessionDate.getTime());
+
+  let runningWeightPR = 0;
+  let runningEstimated1RMPR = 0;
+  let recentPRCount = 0;
+
+  for (const point of orderedSets) {
+    const estimated1RM = calculateEstimated1RM(point.weight, point.reps);
+    const isWeightPR = point.weight > runningWeightPR;
+    const isEstimated1RMPR = estimated1RM > runningEstimated1RMPR;
+
+    if (isAfter(point.sessionDate, recentBoundary)) {
+      if (isWeightPR) {
+        recentPRCount += 1;
+      }
+      if (isEstimated1RMPR) {
+        recentPRCount += 1;
+      }
+    }
+
+    if (isWeightPR) {
+      runningWeightPR = point.weight;
+    }
+    if (isEstimated1RMPR) {
+      runningEstimated1RMPR = estimated1RM;
+    }
+  }
+
+  return recentPRCount;
+}
+
 export function splitRecentAndPrevious(points: WorkingSetPoint[], days = 30) {
   const end = new Date();
   const recentStart = subDays(end, days);
@@ -245,7 +321,14 @@ export function getPRBadgesForSet(
   );
   const maxVolume = Math.max(
     0,
-    ...priorWorkingSets.map((item) => calculateSetVolume(item.weight, item.reps))
+    ...priorWorkingSets.map((item) =>
+      calculateSetVolume(
+        item.weight,
+        item.reps,
+        item.sessionBodyWeight ?? 0,
+        item.includeBodyWeightInVolume ?? false
+      )
+    )
   );
   const repsAtSameWeight = priorWorkingSets
     .filter((item) => item.weight === point.weight)
@@ -259,7 +342,14 @@ export function getPRBadgesForSet(
   if (calculateEstimated1RM(point.weight, point.reps) > maxEpley) {
     badges.push("1RM PR");
   }
-  if (calculateSetVolume(point.weight, point.reps) > maxVolume) {
+  if (
+    calculateSetVolume(
+      point.weight,
+      point.reps,
+      point.sessionBodyWeight ?? 0,
+      point.includeBodyWeightInVolume ?? false
+    ) > maxVolume
+  ) {
     badges.push("Volume PR");
   }
   if (point.reps > maxRepsAtWeight) {
@@ -269,10 +359,17 @@ export function getPRBadgesForSet(
 }
 
 export function getWeeklyFrequencyChart(dates: Date[]) {
-  const grouped = new Map<string, number>();
+  const grouped = new Map<string, { label: string; sessions: number; sortKey: string }>();
   for (const date of dates) {
-    const key = format(date, "MMM d");
-    grouped.set(key, (grouped.get(key) ?? 0) + 1);
+    const sortKey = format(date, "RRRR-II");
+    const existing = grouped.get(sortKey);
+    grouped.set(sortKey, {
+      label: `${format(date, "RRRR")} CW ${format(date, "II")}`,
+      sessions: (existing?.sessions ?? 0) + 1,
+      sortKey
+    });
   }
-  return [...grouped.entries()].map(([label, sessions]) => ({ label, sessions }));
+  return [...grouped.values()]
+    .sort((a, b) => a.sortKey.localeCompare(b.sortKey))
+    .map(({ label, sessions }) => ({ label, sessions }));
 }

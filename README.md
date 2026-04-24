@@ -116,19 +116,44 @@ Warm-up sets are excluded from PR and KPI calculations by default.
 
 ## Quick Start
 
-1. Copy the environment file:
+### 1. Configure environment
+
+Copy the example environment file:
 
 ```bash
 cp .env.example .env
 ```
 
-2. Start Postgres:
+Default development values:
+
+```text
+DATABASE_URL="postgresql://liftlytics:liftlytics@localhost:5432/liftlytics?schema=public"
+BASIC_AUTH_USERNAME="admin"
+BASIC_AUTH_PASSWORD="change-me-before-deploy"
+BASIC_AUTH_USERNAME_2="training-partner"
+BASIC_AUTH_PASSWORD_2="change-me-too"
+```
+
+Change both passwords before exposing the app outside your machine.
+
+### 2. Start Postgres
+
+Using Docker:
 
 ```bash
 docker compose up -d postgres
 ```
 
-3. Install dependencies and prepare the database:
+Check that Postgres is running:
+
+```bash
+docker compose ps
+docker compose logs postgres
+```
+
+You want to see that Postgres is ready to accept connections.
+
+### 3. Install dependencies and prepare the database
 
 ```bash
 npm install
@@ -136,7 +161,9 @@ npx prisma generate
 npm run db:setup
 ```
 
-4. Start the app:
+`npm run db:setup` applies the checked-in migrations and seeds example exercises/sessions.
+
+### 4. Start on localhost
 
 ```bash
 npm run dev
@@ -144,14 +171,94 @@ npm run dev
 
 Open `http://localhost:3000`.
 
-Default basic auth from `.env.example`:
+### 5. Log in
+
+Open the app and sign in with the credentials from `.env`.
+
+The default development login is:
 
 ```text
-username: admin
-password: change-me-before-deploy
+Username: admin
+Password: change-me-before-deploy
 ```
 
-Change those values before deploying publicly.
+An optional second login can also be configured:
+
+```text
+Username: training-partner
+Password: change-me-too
+```
+
+Both logins access the same shared Liftlytics instance and the same training database. This is useful for a partner or second device, but it is not yet separate per-user data ownership.
+
+## Running On Your Local Network
+
+If you want to use Liftlytics from your phone while your laptop is running the app, bind the Next.js server to your LAN interface.
+
+Recommended:
+
+```bash
+APP_HOST=0.0.0.0 APP_PORT=3000 npm run dev:host
+```
+
+Then find your laptop IP:
+
+```bash
+hostname -I
+```
+
+If your laptop IP is `192.168.0.3`, open this on your phone:
+
+```text
+http://192.168.0.3:3000
+```
+
+You can also bind directly to a specific IP:
+
+```bash
+APP_HOST=192.168.0.3 APP_PORT=3000 npm run dev:host
+```
+
+For a production build on your local network:
+
+```bash
+npm run build
+APP_HOST=0.0.0.0 APP_PORT=3000 npm run start:host
+```
+
+Important:
+
+- Your phone and laptop must be on the same network.
+- `192.168.x.x` addresses only work inside your local network.
+- If your phone cannot connect, check your firewall and make sure port `3000` is allowed.
+
+## Where Data Is Stored
+
+When you run the app locally with Docker Postgres:
+
+```text
+Phone browser
+  -> Next.js app running on your laptop
+  -> Prisma
+  -> Postgres container
+  -> Docker volume postgres-data
+```
+
+So if you add a session from your phone, the data is stored in the Postgres container volume on your laptop, not on the phone.
+
+This keeps the data:
+
+```bash
+docker compose down
+```
+
+This deletes the database volume and your local data:
+
+```bash
+docker compose down -v
+```
+
+Do not use `-v` unless you intentionally want to wipe the local database.
 
 ## Deployment Shape
 
@@ -164,22 +271,59 @@ Basic auth for private use
 HTTPS reverse proxy or platform TLS
 ```
 
-For production, set:
+For access from any network, deploy to a server with a public IP or domain. A typical simple setup is:
+
+```text
+VPS or app host
+  -> HTTPS reverse proxy such as Caddy or Nginx
+  -> Next.js app
+  -> Postgres database
+```
+
+Required production environment variables:
 
 ```text
 DATABASE_URL
 BASIC_AUTH_USERNAME
 BASIC_AUTH_PASSWORD
+BASIC_AUTH_USERNAME_2 optional
+BASIC_AUTH_PASSWORD_2 optional
 ```
 
-Use:
+On the server, the basic flow is:
 
 ```bash
+npm install
+npx prisma generate
+npm run db:setup
 npm run build
-npm run start
+APP_HOST=0.0.0.0 APP_PORT=3000 npm run start:host
 ```
 
-or build the included Dockerfile.
+Then put HTTPS in front of the app using your hosting platform, Caddy, Nginx, or another reverse proxy.
+
+Public deployment notes:
+
+- Use strong auth passwords.
+- Use HTTPS. Do not expose login over plain HTTP on the public internet.
+- Back up Postgres regularly.
+- For more than personal/private use, replace basic auth with real user accounts.
+- `192.168.0.3` is not useful for public deployment; it is only a private LAN address.
+
+### Deployment Options
+
+Good options:
+
+- Small VPS with Docker Compose
+- Hetzner, Netcup, DigitalOcean, Linode, or similar
+- Railway/Fly/Render-style hosting with persistent Postgres
+- Tailscale for private access without exposing the app publicly
+
+Avoid for the current app unless adapted:
+
+- Serverless hosting without a persistent database connection strategy
+- Public deployment without HTTPS
+- Router port forwarding from your laptop as the long-term solution
 
 ## Project Structure
 
@@ -197,13 +341,28 @@ or build the included Dockerfile.
 ## Scripts
 
 - `npm run dev`: start development server
+- `npm run dev:host`: start development server on configurable host/port
 - `npm run build`: build production app
 - `npm run start`: serve production app
+- `npm run start:host`: serve production app on configurable host/port
 - `npm run lint`: run ESLint
 - `npm run prisma:generate`: generate Prisma client
 - `npm run prisma:migrate`: create/apply development migrations
 - `npm run prisma:seed`: seed example exercises and sessions
 - `npm run db:setup`: apply migrations and seed data
+
+Host scripts use:
+
+```text
+APP_HOST
+APP_PORT
+```
+
+Example:
+
+```bash
+APP_HOST=0.0.0.0 APP_PORT=3000 npm run dev:host
+```
 
 ## Future Native App Path
 

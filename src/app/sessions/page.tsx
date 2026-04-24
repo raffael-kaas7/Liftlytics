@@ -1,31 +1,24 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { SessionFilters } from "@/components/session/session-filters";
 import { getSessions } from "@/lib/data";
 import { formatDate, formatMetric } from "@/lib/format";
 import { summarizeSession } from "@/lib/selectors";
 
-export default async function SessionsPage({
-  searchParams
-}: {
-  searchParams: { exercise?: string; from?: string; to?: string };
-}) {
-  const sessions = await getSessions(searchParams);
+export default async function SessionsPage() {
+  const sessions = await getSessions();
 
   return (
     <div className="space-y-6">
       <div className="flex items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Session History</h1>
-          <p className="text-muted-foreground">Filter sessions by exercise or date range, then drill into details.</p>
+          <p className="text-muted-foreground">Browse all sessions and drill into the details.</p>
         </div>
         <Button asChild>
           <Link href="/sessions/new">New Session</Link>
         </Button>
       </div>
-
-      <SessionFilters />
 
       <Card>
         <CardHeader>
@@ -35,7 +28,7 @@ export default async function SessionsPage({
         <CardContent className="space-y-3">
           {sessions.length === 0 ? (
             <div className="rounded-2xl border border-dashed p-8 text-center text-muted-foreground">
-              No sessions match the current filters.
+              No sessions logged yet.
             </div>
           ) : (
             sessions.map((session) => {

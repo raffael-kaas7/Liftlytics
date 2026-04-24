@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Dumbbell, LayoutDashboard, List, PlusCircle } from "lucide-react";
+import { LogoutButton } from "@/components/auth/logout-button";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -16,6 +17,8 @@ export function AppShell({
   children: React.ReactNode;
   pathname: string;
 }) {
+  const isLoginPage = pathname === "/login";
+
   return (
     <div className="min-h-screen">
       <header className="border-b border-border/80 bg-background/70 backdrop-blur">
@@ -29,25 +32,30 @@ export function AppShell({
               <div className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Strength Journal</div>
             </div>
           </Link>
-          <nav className="hidden items-center gap-2 md:flex">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const active = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "flex items-center gap-2 rounded-xl px-4 py-2 text-sm text-muted-foreground transition hover:bg-muted hover:text-foreground",
-                    active && "bg-muted text-foreground"
-                  )}
-                >
-                  <Icon className="h-4 w-4" />
-                  {item.label}
-                </Link>
-              );
-            })}
-          </nav>
+          {!isLoginPage && (
+            <div className="hidden items-center gap-2 md:flex">
+              <nav className="flex items-center gap-2">
+                {navItems.map((item) => {
+                  const Icon = item.icon;
+                  const active = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={cn(
+                        "flex items-center gap-2 rounded-xl px-4 py-2 text-sm text-muted-foreground transition hover:bg-muted hover:text-foreground",
+                        active && "bg-muted text-foreground"
+                      )}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </nav>
+              <LogoutButton />
+            </div>
+          )}
         </div>
       </header>
       <main className="container py-8">{children}</main>

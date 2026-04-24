@@ -4,8 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:host": "next dev -H ${APP_HOST:-0.0.0.0} -p ${APP_PORT:-3000}",
     "build": "next build",
     "start": "next start",
+    "start:host": "next start -H ${APP_HOST:-0.0.0.0} -p ${APP_PORT:-3000}",
     "lint": "next lint",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",

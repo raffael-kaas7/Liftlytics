@@ -1,8 +1,31 @@
-import { SessionForm } from "@/components/session/session-form";
-import { getExercises } from "@/lib/data";
+import { SessionForm, type ExerciseDefaults } from "@/components/session/session-form";
+import { getDashboardData, getExercises } from "@/lib/data";
 
 export default async function NewSessionPage() {
-  const exercises = await getExercises();
+  const [exercises, sessions] = await Promise.all([getExercises(), getDashboardData()]);
+  const exerciseDefaults: ExerciseDefaults = {};
+
+  for (const session of sessions) {
+    for (const entry of session.entries) {
+      if (exerciseDefaults[entry.exerciseId]) {
+        continue;
+      }
+
+      const workingSets = entry.sets
+        .filter((set) => !set.isWarmup)
+        .slice(0, 3)
+        .map((set) => ({
+          reps: set.reps,
+          weight: set.weight,
+          isWarmup: false
+        }));
+
+      if (workingSets.length > 0) {
+        exerciseDefaults[entry.exerciseId] = workingSets;
+        exerciseDefaults[entry.exercise.name] = workingSets;
+      }
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -10,7 +33,7 @@ export default async function NewSessionPage() {
         <h1 className="text-3xl font-semibold tracking-tight">New Session</h1>
         <p className="text-muted-foreground">Fast logging for your workout. Warm-up sets stay out of PR calculations.</p>
       </div>
-      <SessionForm mode="create" exercises={exercises} />
+      <SessionForm mode="create" exercises={exercises} exerciseDefaults={exerciseDefaults} />
     </div>
   );
 }

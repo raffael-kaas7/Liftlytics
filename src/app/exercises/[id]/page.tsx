@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  calculateSetVolume,
   deriveExercisePRs,
   deriveExerciseTrendData,
   deriveMomentumMetrics,
@@ -23,9 +24,11 @@ export default async function ExerciseDetailPage({ params }: { params: { id: str
     entry.sets.map((set) => ({
       sessionId: entry.sessionId,
       sessionDate: entry.session.date,
+      sessionBodyWeight: entry.session.bodyWeight,
       exerciseName: exercise.name,
       reps: set.reps,
       weight: set.weight,
+      includeBodyWeightInVolume: exercise.includeBodyWeightInVolume,
       notes: set.notes,
       isWarmup: set.isWarmup
     }))
@@ -49,7 +52,7 @@ export default async function ExerciseDetailPage({ params }: { params: { id: str
             <Badge variant="secondary">{exercise.category || "Uncategorized"}</Badge>
           </div>
           <p className="mt-2 text-muted-foreground">
-            Exercise analytics are based on working sets only unless noted otherwise.
+            Exercise analytics are based on working sets only. Volume includes session body weight when enabled for the exercise.
           </p>
         </div>
         <div className="rounded-2xl border border-primary/20 bg-primary/10 px-4 py-3 text-sm text-primary">
@@ -173,7 +176,17 @@ export default async function ExerciseDetailPage({ params }: { params: { id: str
                     const bestSet = workingSets
                       .slice()
                       .sort((a, b) => b.weight * (1 + b.reps / 30) - a.weight * (1 + a.reps / 30))[0];
-                    const volume = workingSets.reduce((sum, set) => sum + set.weight * set.reps, 0);
+                    const volume = workingSets.reduce(
+                      (sum, set) =>
+                        sum +
+                        calculateSetVolume(
+                          set.weight,
+                          set.reps,
+                          entry.session.bodyWeight ?? 0,
+                          exercise.includeBodyWeightInVolume
+                        ),
+                      0
+                    );
 
                     return (
                       <tr key={entry.id} className="border-b border-border/50">

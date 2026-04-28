@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, ArrowUp, Minus, Plus, Save, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, ChevronUp, Minus, Plus, Save, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -53,6 +53,20 @@ function normalizeSets(sets?: Array<Pick<SetInput, "reps" | "weight" | "isWarmup
   return next;
 }
 
+function parseNumericInput(value: string) {
+  const normalized = value.replace(",", ".").trim();
+  if (normalized === "") {
+    return 0;
+  }
+
+  const parsed = Number(normalized);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function formatCompactNumber(value: number) {
+  return Number.isInteger(value) ? String(value) : String(value);
+}
+
 export function SessionForm({
   mode,
   exercises,
@@ -78,6 +92,7 @@ export function SessionForm({
   );
   const [selectedCategories, setSelectedCategories] = useState<Record<number, string>>({});
   const [showCustomInput, setShowCustomInput] = useState<Record<number, boolean>>({});
+  const [openExercises, setOpenExercises] = useState<Record<number, boolean>>({ 0: true });
 
   const categories = useMemo(() => {
     const unique = new Set(exercises.map((exercise) => exercise.category || "Other"));
@@ -87,6 +102,10 @@ export function SessionForm({
   }, [exercises]);
 
   const exerciseLookup = useMemo(() => new Map(exercises.map((exercise) => [exercise.id, exercise])), [exercises]);
+
+  function openOnlyExercise(index: number) {
+    setOpenExercises({ [index]: true });
+  }
 
   function updateExercise(index: number, value: Partial<ExerciseEntryInput>) {
     setForm((current) => ({
@@ -131,13 +150,16 @@ export function SessionForm({
       includeBodyWeightInVolume: option.includeBodyWeightInVolume,
       sets: normalizeSets(exerciseDefaults[option.id] ?? exerciseDefaults[option.name])
     });
+    openOnlyExercise(index);
   }
 
   function addExercise() {
+    const nextIndex = form.exercises.length;
     setForm((current) => ({
       ...current,
       exercises: [...current.exercises, { ...blankExercise(), orderIndex: current.exercises.length }]
     }));
+    openOnlyExercise(nextIndex);
   }
 
   function removeExercise(index: number) {
@@ -147,11 +169,22 @@ export function SessionForm({
         .filter((_, exerciseIndex) => exerciseIndex !== index)
         .map((exercise, orderIndex) => ({ ...exercise, orderIndex }))
     }));
+    setOpenExercises((current) => {
+      const openIndex = Object.entries(current).find(([, value]) => value)?.[0];
+      const numericOpenIndex = openIndex === undefined ? 0 : Number(openIndex);
+      const nextIndex =
+        numericOpenIndex === index
+          ? Math.max(0, Math.min(index, form.exercises.length - 2))
+          : numericOpenIndex > index
+            ? numericOpenIndex - 1
+            : numericOpenIndex;
+      return { [nextIndex]: true };
+    });
   }
 
   function moveExercise(index: number, direction: -1 | 1) {
+    const target = index + direction;
     setForm((current) => {
-      const target = index + direction;
       if (target < 0 || target >= current.exercises.length) {
         return current;
       }
@@ -160,6 +193,20 @@ export function SessionForm({
       return {
         ...current,
         exercises: next.map((exercise, orderIndex) => ({ ...exercise, orderIndex }))
+      };
+    });
+    setOpenExercises((current) => {
+      if (target < 0 || target >= form.exercises.length) {
+        return current;
+      }
+      const isCurrentOpen = current[index] ?? false;
+      const isTargetOpen = current[target] ?? false;
+      if (!isCurrentOpen && !isTargetOpen) {
+        return current;
+      }
+      return {
+        [index]: isTargetOpen,
+        [target]: isCurrentOpen
       };
     });
   }
@@ -182,6 +229,15 @@ export function SessionForm({
           : exercise
       )
     }));
+  }
+
+  function toggleExercise(index: number) {
+    setOpenExercises((current) => {
+      if (current[index]) {
+        return current;
+      }
+      return { [index]: true };
+    });
   }
 
   async function handleSubmit() {
@@ -257,11 +313,11 @@ export function SessionForm({
               type="number"
               min={0}
               step={0.1}
-              value={form.bodyWeight ?? ""}
+              value={form.bodyWeight === null || form.bodyWeight === undefined || form.bodyWeight === 0 ? "" : formatCompactNumber(form.bodyWeight)}
               onChange={(event) =>
                 setForm((current) => ({
                   ...current,
-                  bodyWeight: event.target.value === "" ? null : Number(event.target.value)
+                  bodyWeight: event.target.value === "" ? null : parseNumericInput(event.target.value)
                 }))
               }
               placeholder="Optional"
@@ -285,18 +341,39 @@ export function SessionForm({
         const selectedExerciseName = exercise.exerciseId
           ? exerciseLookup.get(exercise.exerciseId)?.name
           : exercise.exerciseName;
+        const isOpen = openExercises[exerciseIndex] ?? exerciseIndex === 0;
+        const workingSetCount = exercise.sets.filter((set) => !set.isWarmup).length;
 
         return (
           <Card key={exerciseIndex} className="overflow-hidden">
             <CardHeader className="space-y-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <CardTitle className="text-base">Exercise {exerciseIndex + 1}</CardTitle>
+                  <button
+                    type="button"
+                    onClick={() => toggleExercise(exerciseIndex)}
+                    className="flex items-center gap-2 text-left"
+                  >
+                    {isOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                    <CardTitle className="text-base">Exercise {exerciseIndex + 1}</CardTitle>
+                  </button>
                   <p className="mt-1 text-sm text-muted-foreground">
                     {selectedExerciseName || "Choose a category, then tap an exercise."}
                   </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {exercise.sets.length} sets, {workingSetCount} working
+                    {exercise.includeBodyWeightInVolume ? ", bodyweight volume on" : ""}
+                  </p>
                 </div>
                 <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    type="button"
+                    onClick={() => toggleExercise(exerciseIndex)}
+                  >
+                    {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </Button>
                   <Button variant="outline" size="icon" type="button" onClick={() => moveExercise(exerciseIndex, -1)}>
                     <ArrowUp className="h-4 w-4" />
                   </Button>
@@ -314,202 +391,207 @@ export function SessionForm({
                   </Button>
                 </div>
               </div>
-
-              <div className="space-y-3">
-                <Label>Category</Label>
-                <div className="flex gap-2 overflow-x-auto pb-1">
-                  {categories.map((category) => (
-                    <button
-                      key={category}
-                      type="button"
-                      onClick={() => {
-                        setSelectedCategories((current) => ({ ...current, [exerciseIndex]: category }));
-                        updateExercise(exerciseIndex, { category });
-                      }}
-                      className={cn(
-                        "shrink-0 rounded-full border px-4 py-2 text-sm transition",
-                        selectedCategory === category
-                          ? "border-primary bg-primary/15 text-primary"
-                          : "border-border text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      {category}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <Label>Exercise</Label>
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                  {visibleExercises.map((option) => (
-                    <button
-                      type="button"
-                      key={option.id}
-                      onClick={() => selectExercise(exerciseIndex, option)}
-                      className={cn(
-                        "rounded-2xl border p-3 text-left text-sm transition",
-                        exercise.exerciseId === option.id
-                          ? "border-primary bg-primary/15 text-primary"
-                          : "border-border bg-background/40 text-foreground hover:bg-muted/60"
-                      )}
-                    >
-                      <span className="font-medium">{option.name}</span>
-                      <span className="mt-1 block text-xs text-muted-foreground">
-                        {option.isCompound ? "Compound lift" : "Accessory"}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowCustomInput((current) => ({ ...current, [exerciseIndex]: !current[exerciseIndex] }))}
-                >
-                  {showCustomInput[exerciseIndex] ? "Hide custom exercise" : "Create custom exercise"}
-                </Button>
-                {showCustomInput[exerciseIndex] && (
-                  <Input
-                    value={exercise.exerciseId ? "" : exercise.exerciseName ?? ""}
-                    onChange={(event) =>
-                      updateExercise(exerciseIndex, {
-                        exerciseId: "",
-                        exerciseName: event.target.value,
-                        category: selectedCategory,
-                        isCompound: false
-                      })
-                    }
-                    placeholder={`New ${selectedCategory.toLowerCase()} exercise`}
-                  />
-                )}
-              </div>
-
-              <label className="flex w-fit items-center gap-3 rounded-full border border-border px-3 py-2 text-sm text-muted-foreground">
-                <input
-                  type="checkbox"
-                  checked={exercise.includeBodyWeightInVolume ?? false}
-                  onChange={(event) =>
-                    updateExercise(exerciseIndex, { includeBodyWeightInVolume: event.target.checked })
-                  }
-                  className="h-4 w-4 rounded border-border"
-                />
-                Include session body weight in volume
-              </label>
-
-              <div className="space-y-2">
-                <Label>Exercise notes</Label>
-                <Textarea
-                  value={exercise.notes ?? ""}
-                  onChange={(event) => updateExercise(exerciseIndex, { notes: event.target.value })}
-                  placeholder="Gym, bench setup, technique cue, injury note..."
-                />
-              </div>
             </CardHeader>
 
-            <CardContent className="space-y-3">
-              {exercise.sets.map((set, setIndex) => (
-                <div key={setIndex} className="rounded-2xl border border-border/70 bg-muted/20 p-4">
-                  <div className="mb-4 flex items-center justify-between gap-3">
-                    <div>
-                      <div className="font-medium">Set {setIndex + 1}</div>
-                      <div className="text-xs text-muted-foreground">Working KPIs exclude warm-up sets.</div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      type="button"
-                      onClick={() => removeSet(exerciseIndex, setIndex)}
-                      disabled={exercise.sets.length === 1}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+            {isOpen && (
+              <CardContent className="space-y-3">
+                <div className="space-y-3">
+                  <Label>Category</Label>
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {categories.map((category) => (
+                      <button
+                        key={category}
+                        type="button"
+                        onClick={() => {
+                          setSelectedCategories((current) => ({ ...current, [exerciseIndex]: category }));
+                          updateExercise(exerciseIndex, { category });
+                        }}
+                        className={cn(
+                          "shrink-0 rounded-full border px-4 py-2 text-sm transition",
+                          selectedCategory === category
+                            ? "border-primary bg-primary/15 text-primary"
+                            : "border-border text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        {category}
+                      </button>
+                    ))}
                   </div>
-
-                  <div className="grid gap-4 lg:grid-cols-[180px,240px,1fr]">
-                    <div className="space-y-2">
-                      <Label>Reps</Label>
-                      <div className="flex items-center rounded-2xl border bg-background/50 p-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          type="button"
-                          onClick={() => stepSetValue(exerciseIndex, setIndex, "reps", -1)}
-                        >
-                          <Minus className="h-4 w-4" />
-                        </Button>
-                        <div className="flex-1 text-center text-xl font-semibold">{set.reps}</div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          type="button"
-                          onClick={() => stepSetValue(exerciseIndex, setIndex, "reps", 1)}
-                        >
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>Weight</Label>
-                      <div className="grid grid-cols-[44px,1fr,44px] gap-2">
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          type="button"
-                          onClick={() => stepSetValue(exerciseIndex, setIndex, "weight", -2.5)}
-                        >
-                          <Minus className="h-4 w-4" />
-                        </Button>
-                        <Input
-                          type="number"
-                          min={0}
-                          step={0.5}
-                          value={set.weight}
-                          onChange={(event) => updateSet(exerciseIndex, setIndex, { weight: Number(event.target.value) })}
-                          className="text-center"
-                        />
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          type="button"
-                          onClick={() => stepSetValue(exerciseIndex, setIndex, "weight", 2.5)}
-                        >
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>Set note</Label>
-                      <Input
-                        value={set.notes ?? ""}
-                        onChange={(event) => updateSet(exerciseIndex, setIndex, { notes: event.target.value })}
-                        placeholder="Optional"
-                      />
-                    </div>
-                  </div>
-
-                  <label className="mt-4 flex w-fit items-center gap-3 rounded-full border border-border px-3 py-2 text-sm text-muted-foreground">
-                    <input
-                      type="checkbox"
-                      checked={set.isWarmup ?? false}
-                      onChange={(event) => updateSet(exerciseIndex, setIndex, { isWarmup: event.target.checked })}
-                      className="h-4 w-4 rounded border-border"
-                    />
-                    Warm-up set
-                  </label>
                 </div>
-              ))}
 
-              <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-                <Button variant="secondary" type="button" onClick={() => addSet(exerciseIndex)}>
-                  <Plus className="h-4 w-4" />
-                  Add Set
-                </Button>
-                <div className="text-xs text-muted-foreground">Default is 3 sets of 8 reps. Selecting an exercise reuses your last logged loads.</div>
-              </div>
-            </CardContent>
+                <div className="space-y-3">
+                  <Label>Exercise</Label>
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {visibleExercises.map((option) => (
+                      <button
+                        type="button"
+                        key={option.id}
+                        onClick={() => selectExercise(exerciseIndex, option)}
+                        className={cn(
+                          "rounded-2xl border p-3 text-left text-sm transition",
+                          exercise.exerciseId === option.id
+                            ? "border-primary bg-primary/15 text-primary"
+                            : "border-border bg-background/40 text-foreground hover:bg-muted/60"
+                        )}
+                      >
+                        <span className="font-medium">{option.name}</span>
+                        <span className="mt-1 block text-xs text-muted-foreground">
+                          {option.isCompound ? "Compound lift" : "Accessory"}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowCustomInput((current) => ({ ...current, [exerciseIndex]: !current[exerciseIndex] }))}
+                  >
+                    {showCustomInput[exerciseIndex] ? "Hide custom exercise" : "Create custom exercise"}
+                  </Button>
+                  {showCustomInput[exerciseIndex] && (
+                    <Input
+                      value={exercise.exerciseId ? "" : exercise.exerciseName ?? ""}
+                      onChange={(event) =>
+                        updateExercise(exerciseIndex, {
+                          exerciseId: "",
+                          exerciseName: event.target.value,
+                          category: selectedCategory,
+                          isCompound: false
+                        })
+                      }
+                      placeholder={`New ${selectedCategory.toLowerCase()} exercise`}
+                    />
+                  )}
+                </div>
+
+                <label className="flex w-fit items-center gap-3 rounded-full border border-border px-3 py-2 text-sm text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={exercise.includeBodyWeightInVolume ?? false}
+                    onChange={(event) =>
+                      updateExercise(exerciseIndex, { includeBodyWeightInVolume: event.target.checked })
+                    }
+                    className="h-4 w-4 rounded border-border"
+                  />
+                  Include session body weight in volume
+                </label>
+
+                <div className="space-y-2">
+                  <Label>Exercise notes</Label>
+                  <Textarea
+                    value={exercise.notes ?? ""}
+                    onChange={(event) => updateExercise(exerciseIndex, { notes: event.target.value })}
+                    placeholder="Gym, bench setup, technique cue, injury note..."
+                  />
+                </div>
+
+                {exercise.sets.map((set, setIndex) => (
+                  <div key={setIndex} className="rounded-2xl border border-border/70 bg-muted/20 p-4">
+                    <div className="mb-4 flex items-center justify-between gap-3">
+                      <div>
+                        <div className="font-medium">Set {setIndex + 1}</div>
+                        <div className="text-xs text-muted-foreground">Working KPIs exclude warm-up sets.</div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        type="button"
+                        onClick={() => removeSet(exerciseIndex, setIndex)}
+                        disabled={exercise.sets.length === 1}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    <div className="grid gap-4 lg:grid-cols-[180px,240px,1fr]">
+                      <div className="space-y-2">
+                        <Label>Reps</Label>
+                        <div className="flex items-center rounded-2xl border bg-background/50 p-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            type="button"
+                            onClick={() => stepSetValue(exerciseIndex, setIndex, "reps", -1)}
+                          >
+                            <Minus className="h-4 w-4" />
+                          </Button>
+                          <div className="flex-1 text-center text-xl font-semibold">{set.reps}</div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            type="button"
+                            onClick={() => stepSetValue(exerciseIndex, setIndex, "reps", 1)}
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Weight</Label>
+                        <div className="grid grid-cols-[44px,1fr,44px] gap-2">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            type="button"
+                            onClick={() => stepSetValue(exerciseIndex, setIndex, "weight", -2.5)}
+                          >
+                            <Minus className="h-4 w-4" />
+                          </Button>
+                          <Input
+                            type="number"
+                            min={0}
+                            step={0.5}
+                            value={set.weight === 0 ? "" : formatCompactNumber(set.weight)}
+                            onChange={(event) =>
+                              updateSet(exerciseIndex, setIndex, { weight: parseNumericInput(event.target.value) })
+                            }
+                            className="text-center"
+                            placeholder="0"
+                          />
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            type="button"
+                            onClick={() => stepSetValue(exerciseIndex, setIndex, "weight", 2.5)}
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Set note</Label>
+                        <Input
+                          value={set.notes ?? ""}
+                          onChange={(event) => updateSet(exerciseIndex, setIndex, { notes: event.target.value })}
+                          placeholder="Optional"
+                        />
+                      </div>
+                    </div>
+
+                    <label className="mt-4 flex w-fit items-center gap-3 rounded-full border border-border px-3 py-2 text-sm text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        checked={set.isWarmup ?? false}
+                        onChange={(event) => updateSet(exerciseIndex, setIndex, { isWarmup: event.target.checked })}
+                        className="h-4 w-4 rounded border-border"
+                      />
+                      Warm-up set
+                    </label>
+                  </div>
+                ))}
+
+                <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+                  <Button variant="secondary" type="button" onClick={() => addSet(exerciseIndex)}>
+                    <Plus className="h-4 w-4" />
+                    Add Set
+                  </Button>
+                  <div className="text-xs text-muted-foreground">Default is 3 sets of 8 reps. Selecting an exercise reuses your last logged loads.</div>
+                </div>
+              </CardContent>
+            )}
           </Card>
         );
       })}

@@ -7,19 +7,15 @@ type AuthUser = {
 
 function getConfiguredUsers(): AuthUser[] {
   const users: AuthUser[] = [];
+  const suffixes = ["", "_2", "_3", "_4"];
 
-  if (process.env.BASIC_AUTH_USERNAME && process.env.BASIC_AUTH_PASSWORD) {
-    users.push({
-      username: process.env.BASIC_AUTH_USERNAME,
-      password: process.env.BASIC_AUTH_PASSWORD
-    });
-  }
+  for (const suffix of suffixes) {
+    const username = process.env[`BASIC_AUTH_USERNAME${suffix}`];
+    const password = process.env[`BASIC_AUTH_PASSWORD${suffix}`];
 
-  if (process.env.BASIC_AUTH_USERNAME_2 && process.env.BASIC_AUTH_PASSWORD_2) {
-    users.push({
-      username: process.env.BASIC_AUTH_USERNAME_2,
-      password: process.env.BASIC_AUTH_PASSWORD_2
-    });
+    if (username && password) {
+      users.push({ username, password });
+    }
   }
 
   return users;

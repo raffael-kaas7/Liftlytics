@@ -14,6 +14,6 @@ export interface WorkoutRepository {
   listExercises(): Promise<Exercise[]>;
   getExerciseById(id: string): Promise<ExerciseDetail | null>;
   createSession(payload: WorkoutSessionInput): Promise<{ id: string }>;
-  updateSession(id: string, payload: WorkoutSessionInput): Promise<{ id: string }>;
+  updateSession(id: string, payload: WorkoutSessionInput, loggedBy?: string | null): Promise<{ id: string }>;
   deleteSession(id: string): Promise<void>;
 }

@@ -33,6 +33,10 @@ export function getExpectedAuthTokens() {
   return getConfiguredUsers().map((user) => createAuthToken(user.username, user.password));
 }
 
+export function getConfiguredUsernames() {
+  return getConfiguredUsers().map((user) => user.username);
+}
+
 export function credentialsAreValid(username: string, password: string) {
   return getConfiguredUsers().some((user) => user.username === username && user.password === password);
 }
@@ -43,4 +47,24 @@ export function createSessionToken(username: string, password: string) {
   }
 
   return createAuthToken(username, password);
+}
+
+export function getUsernameFromSessionToken(sessionToken?: string | null) {
+  if (!sessionToken) {
+    return null;
+  }
+
+  try {
+    const decoded = atob(sessionToken);
+    const separatorIndex = decoded.indexOf(":");
+    if (separatorIndex === -1) {
+      return null;
+    }
+
+    const username = decoded.slice(0, separatorIndex);
+    const password = decoded.slice(separatorIndex + 1);
+    return credentialsAreValid(username, password) ? username : null;
+  } catch {
+    return null;
+  }
 }

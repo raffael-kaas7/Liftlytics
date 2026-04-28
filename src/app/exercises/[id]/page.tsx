@@ -29,6 +29,7 @@ export default async function ExerciseDetailPage({ params }: { params: { id: str
       reps: set.reps,
       weight: set.weight,
       includeBodyWeightInVolume: exercise.includeBodyWeightInVolume,
+      bodyWeightVolumeMultiplier: exercise.bodyWeightVolumeMultiplier,
       notes: set.notes,
       isWarmup: set.isWarmup
     }))
@@ -52,7 +53,7 @@ export default async function ExerciseDetailPage({ params }: { params: { id: str
             <Badge variant="secondary">{exercise.category || "Uncategorized"}</Badge>
           </div>
           <p className="mt-2 text-muted-foreground">
-            Exercise analytics are based on working sets only. Volume includes session body weight when enabled for the exercise.
+            Exercise analytics are based on working sets only. Volume can include a configured share of session body weight.
           </p>
         </div>
         <div className="rounded-2xl border border-primary/20 bg-primary/10 px-4 py-3 text-sm text-primary">
@@ -183,7 +184,8 @@ export default async function ExerciseDetailPage({ params }: { params: { id: str
                           set.weight,
                           set.reps,
                           entry.session.bodyWeight ?? 0,
-                          exercise.includeBodyWeightInVolume
+                          exercise.includeBodyWeightInVolume,
+                          exercise.bodyWeightVolumeMultiplier
                         ),
                       0
                     );

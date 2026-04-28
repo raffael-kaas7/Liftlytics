@@ -31,8 +31,8 @@ export function createSession(payload: WorkoutSessionInput) {
   return workoutService.createSession(payload);
 }
 
-export function updateSession(id: string, payload: WorkoutSessionInput) {
-  return workoutService.updateSession(id, payload);
+export function updateSession(id: string, payload: WorkoutSessionInput, loggedBy?: string | null) {
+  return workoutService.updateSession(id, payload, loggedBy);
 }
 
 export function deleteSession(id: string) {

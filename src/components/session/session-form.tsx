@@ -18,6 +18,7 @@ type ExerciseOption = {
   category: string | null;
   isCompound: boolean;
   includeBodyWeightInVolume: boolean;
+  bodyWeightVolumeMultiplier: number;
 };
 
 export type ExerciseDefaults = Record<string, Array<Pick<SetInput, "reps" | "weight" | "isWarmup">>>;
@@ -29,6 +30,8 @@ const blankExercise = (): ExerciseEntryInput => ({
   exerciseName: "",
   category: "",
   isCompound: false,
+  includeBodyWeightInVolume: false,
+  bodyWeightVolumeMultiplier: 1,
   notes: "",
   orderIndex: 0,
   sets: [{ ...blankSet() }, { ...blankSet() }, { ...blankSet() }]
@@ -67,6 +70,50 @@ function formatCompactNumber(value: number) {
   return Number.isInteger(value) ? String(value) : String(value);
 }
 
+function formatPercentInput(value?: number) {
+  const percent = Math.round(((value ?? 1) * 100) * 10) / 10;
+  return formatCompactNumber(percent);
+}
+
+function parseBodyWeightVolumeMultiplier(value: string) {
+  return Math.min(2, Math.max(0, parseNumericInput(value) / 100));
+}
+
+function removeIndexedRecord<T>(record: Record<number, T>, index: number) {
+  const next: Record<number, T> = {};
+
+  for (const [key, value] of Object.entries(record)) {
+    const numericKey = Number(key);
+    if (Number.isNaN(numericKey) || numericKey === index) {
+      continue;
+    }
+
+    next[numericKey > index ? numericKey - 1 : numericKey] = value;
+  }
+
+  return next;
+}
+
+function swapIndexedRecord<T>(record: Record<number, T>, index: number, target: number) {
+  const next = { ...record };
+  const currentValue = next[index];
+  const targetValue = next[target];
+
+  if (targetValue === undefined) {
+    delete next[index];
+  } else {
+    next[index] = targetValue;
+  }
+
+  if (currentValue === undefined) {
+    delete next[target];
+  } else {
+    next[target] = currentValue;
+  }
+
+  return next;
+}
+
 export function SessionForm({
   mode,
   exercises,
@@ -92,7 +139,7 @@ export function SessionForm({
   );
   const [selectedCategories, setSelectedCategories] = useState<Record<number, string>>({});
   const [showCustomInput, setShowCustomInput] = useState<Record<number, boolean>>({});
-  const [openExercises, setOpenExercises] = useState<Record<number, boolean>>({ 0: true });
+  const [openExerciseIndex, setOpenExerciseIndex] = useState<number | null>(0);
 
   const categories = useMemo(() => {
     const unique = new Set(exercises.map((exercise) => exercise.category || "Other"));
@@ -104,7 +151,7 @@ export function SessionForm({
   const exerciseLookup = useMemo(() => new Map(exercises.map((exercise) => [exercise.id, exercise])), [exercises]);
 
   function openOnlyExercise(index: number) {
-    setOpenExercises({ [index]: true });
+    setOpenExerciseIndex(index);
   }
 
   function updateExercise(index: number, value: Partial<ExerciseEntryInput>) {
@@ -148,6 +195,7 @@ export function SessionForm({
       category: option.category ?? "",
       isCompound: option.isCompound,
       includeBodyWeightInVolume: option.includeBodyWeightInVolume,
+      bodyWeightVolumeMultiplier: option.bodyWeightVolumeMultiplier,
       sets: normalizeSets(exerciseDefaults[option.id] ?? exerciseDefaults[option.name])
     });
     openOnlyExercise(index);
@@ -163,27 +211,35 @@ export function SessionForm({
   }
 
   function removeExercise(index: number) {
+    const nextLength = form.exercises.length - 1;
+
     setForm((current) => ({
       ...current,
       exercises: current.exercises
         .filter((_, exerciseIndex) => exerciseIndex !== index)
         .map((exercise, orderIndex) => ({ ...exercise, orderIndex }))
     }));
-    setOpenExercises((current) => {
-      const openIndex = Object.entries(current).find(([, value]) => value)?.[0];
-      const numericOpenIndex = openIndex === undefined ? 0 : Number(openIndex);
-      const nextIndex =
-        numericOpenIndex === index
-          ? Math.max(0, Math.min(index, form.exercises.length - 2))
-          : numericOpenIndex > index
-            ? numericOpenIndex - 1
-            : numericOpenIndex;
-      return { [nextIndex]: true };
+    setSelectedCategories((current) => removeIndexedRecord(current, index));
+    setShowCustomInput((current) => removeIndexedRecord(current, index));
+    setOpenExerciseIndex((current) => {
+      if (nextLength <= 0 || current === null) {
+        return null;
+      }
+
+      if (current === index) {
+        return Math.max(0, Math.min(index, nextLength - 1));
+      }
+
+      return current > index ? current - 1 : current;
     });
   }
 
   function moveExercise(index: number, direction: -1 | 1) {
     const target = index + direction;
+    if (target < 0 || target >= form.exercises.length) {
+      return;
+    }
+
     setForm((current) => {
       if (target < 0 || target >= current.exercises.length) {
         return current;
@@ -195,19 +251,16 @@ export function SessionForm({
         exercises: next.map((exercise, orderIndex) => ({ ...exercise, orderIndex }))
       };
     });
-    setOpenExercises((current) => {
-      if (target < 0 || target >= form.exercises.length) {
-        return current;
+    setSelectedCategories((current) => swapIndexedRecord(current, index, target));
+    setShowCustomInput((current) => swapIndexedRecord(current, index, target));
+    setOpenExerciseIndex((current) => {
+      if (current === index) {
+        return target;
       }
-      const isCurrentOpen = current[index] ?? false;
-      const isTargetOpen = current[target] ?? false;
-      if (!isCurrentOpen && !isTargetOpen) {
-        return current;
+      if (current === target) {
+        return index;
       }
-      return {
-        [index]: isTargetOpen,
-        [target]: isCurrentOpen
-      };
+      return current;
     });
   }
 
@@ -232,18 +285,15 @@ export function SessionForm({
   }
 
   function toggleExercise(index: number) {
-    setOpenExercises((current) => {
-      if (current[index]) {
-        return current;
-      }
-      return { [index]: true };
-    });
+    setOpenExerciseIndex((current) => (current === index ? null : index));
   }
 
   async function handleSubmit() {
     const hasInvalidExercise = form.exercises.some(
       (exercise) =>
         (!exercise.exerciseId && !exercise.exerciseName?.trim()) ||
+        (exercise.includeBodyWeightInVolume &&
+          ((exercise.bodyWeightVolumeMultiplier ?? 1) < 0 || (exercise.bodyWeightVolumeMultiplier ?? 1) > 2)) ||
         exercise.sets.some((set) => set.reps <= 0 || set.weight < 0)
     );
 
@@ -267,6 +317,7 @@ export function SessionForm({
           orderIndex,
           exerciseId: exercise.exerciseId || undefined,
           exerciseName: exercise.exerciseId ? undefined : exercise.exerciseName?.trim(),
+          bodyWeightVolumeMultiplier: Number(exercise.bodyWeightVolumeMultiplier ?? 1),
           sets: exercise.sets.map((set) => ({
             ...set,
             reps: Number(set.reps),
@@ -341,7 +392,7 @@ export function SessionForm({
         const selectedExerciseName = exercise.exerciseId
           ? exerciseLookup.get(exercise.exerciseId)?.name
           : exercise.exerciseName;
-        const isOpen = openExercises[exerciseIndex] ?? exerciseIndex === 0;
+        const isOpen = openExerciseIndex === exerciseIndex;
         const workingSetCount = exercise.sets.filter((set) => !set.isWarmup).length;
 
         return (
@@ -362,7 +413,9 @@ export function SessionForm({
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {exercise.sets.length} sets, {workingSetCount} working
-                    {exercise.includeBodyWeightInVolume ? ", bodyweight volume on" : ""}
+                    {exercise.includeBodyWeightInVolume
+                      ? `, ${formatPercentInput(exercise.bodyWeightVolumeMultiplier)}% bodyweight volume`
+                      : ""}
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -457,7 +510,8 @@ export function SessionForm({
                           exerciseId: "",
                           exerciseName: event.target.value,
                           category: selectedCategory,
-                          isCompound: false
+                          isCompound: false,
+                          bodyWeightVolumeMultiplier: exercise.bodyWeightVolumeMultiplier ?? 1
                         })
                       }
                       placeholder={`New ${selectedCategory.toLowerCase()} exercise`}
@@ -465,17 +519,40 @@ export function SessionForm({
                   )}
                 </div>
 
-                <label className="flex w-fit items-center gap-3 rounded-full border border-border px-3 py-2 text-sm text-muted-foreground">
-                  <input
-                    type="checkbox"
-                    checked={exercise.includeBodyWeightInVolume ?? false}
-                    onChange={(event) =>
-                      updateExercise(exerciseIndex, { includeBodyWeightInVolume: event.target.checked })
-                    }
-                    className="h-4 w-4 rounded border-border"
-                  />
-                  Include session body weight in volume
-                </label>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                  <label className="flex w-fit items-center gap-3 rounded-full border border-border px-3 py-2 text-sm text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={exercise.includeBodyWeightInVolume ?? false}
+                      onChange={(event) =>
+                        updateExercise(exerciseIndex, {
+                          includeBodyWeightInVolume: event.target.checked,
+                          bodyWeightVolumeMultiplier: exercise.bodyWeightVolumeMultiplier ?? 1
+                        })
+                      }
+                      className="h-4 w-4 rounded border-border"
+                    />
+                    Include body weight in volume
+                  </label>
+                  {exercise.includeBodyWeightInVolume && (
+                    <div className="w-36 space-y-2">
+                      <Label htmlFor={`body-weight-volume-${exerciseIndex}`}>Body weight %</Label>
+                      <Input
+                        id={`body-weight-volume-${exerciseIndex}`}
+                        type="number"
+                        min={0}
+                        max={200}
+                        step={5}
+                        value={formatPercentInput(exercise.bodyWeightVolumeMultiplier)}
+                        onChange={(event) =>
+                          updateExercise(exerciseIndex, {
+                            bodyWeightVolumeMultiplier: parseBodyWeightVolumeMultiplier(event.target.value)
+                          })
+                        }
+                      />
+                    </div>
+                  )}
+                </div>
 
                 <div className="space-y-2">
                   <Label>Exercise notes</Label>

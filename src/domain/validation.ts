@@ -14,6 +14,7 @@ const exerciseSchema = z
     category: z.string().trim().optional(),
     isCompound: z.boolean().optional(),
     includeBodyWeightInVolume: z.boolean().optional(),
+    bodyWeightVolumeMultiplier: z.number().min(0).max(2).optional(),
     notes: z.string().trim().max(500).optional().or(z.literal("")),
     orderIndex: z.number().int().min(0),
     sets: z.array(setSchema).min(1)
@@ -26,6 +27,7 @@ export const workoutSessionSchema = z.object({
   date: z.string().min(1),
   bodyWeight: z.number().min(0).nullable().optional(),
   notes: z.string().trim().max(1000).optional().or(z.literal("")),
+  loggedBy: z.string().trim().max(80).nullable().optional(),
   exercises: z.array(exerciseSchema).min(1)
 });
 

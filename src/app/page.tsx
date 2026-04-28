@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { subDays } from "date-fns";
 import { ArrowRight, Flame, TrendingUp } from "lucide-react";
 import { ChartCard } from "@/components/charts/chart-card";
 import { SummaryCard } from "@/components/dashboard/summary-card";
@@ -8,16 +9,31 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import {
   RECENT_PR_WINDOW_DAYS,
   countRecentPRs,
-  deriveExercisePRs,
+  deriveExerciseProgress,
   getWeeklyFrequencyChart
 } from "@/lib/analytics";
+import { getConfiguredUsernames } from "@/lib/auth";
 import { getDashboardData } from "@/lib/data";
 import { formatDate, formatMetric } from "@/lib/format";
 import { flattenSessionPoints, summarizeSession } from "@/lib/selectors";
 
+const SESSION_FREQUENCY_WINDOW_DAYS = 30;
+
+function formatSignedPercent(value: number | null) {
+  if (value === null) {
+    return "No comparison";
+  }
+
+  return `${value > 0 ? "+" : ""}${formatMetric(value, 1)}%`;
+}
+
 export default async function DashboardPage() {
   const sessions = await getDashboardData();
   const points = flattenSessionPoints(sessions);
+  const configuredUsernames = getConfiguredUsernames();
+  const frequencyBoundary = subDays(new Date(), SESSION_FREQUENCY_WINDOW_DAYS);
+  const recentSessions = sessions.filter((session) => session.date >= frequencyBoundary);
+  const overallSessionsPerWeek = recentSessions.length / (SESSION_FREQUENCY_WINDOW_DAYS / 7);
 
   const sessionVolumeChart = sessions
     .slice()
@@ -36,16 +52,48 @@ export default async function DashboardPage() {
 
   const topImprovingExercises = [...groupedByExercise.entries()]
     .map(([name, exercisePoints]) => {
-      const prs = deriveExercisePRs(exercisePoints);
+      const progress = deriveExerciseProgress(exercisePoints);
       return {
         name,
-        projected1RM: prs.currentProjected1RM ?? 0,
-        sessionCount: prs.totalSessions,
-        lifetimeVolume: prs.totalLifetimeVolume
+        changePct: progress.changePct,
+        latestBestEstimated1RM: progress.latestBestEstimated1RM,
+        previousBestEstimated1RM: progress.previousBestEstimated1RM,
+        latestBestSetLabel: progress.latestBestSetLabel,
+        previousBestSetLabel: progress.previousBestSetLabel,
+        sessionCount: progress.sessionCount
       };
     })
-    .sort((a, b) => b.projected1RM - a.projected1RM)
+    .filter((exercise) => exercise.changePct !== null)
+    .sort((a, b) => (b.changePct ?? -Infinity) - (a.changePct ?? -Infinity))
     .slice(0, 3);
+
+  const trackedUsernames = new Set([
+    ...configuredUsernames,
+    ...sessions.map((session) => session.loggedBy || "Unassigned")
+  ]);
+  const userSessionFrequency = [...trackedUsernames]
+    .map((username) => {
+      const userSessions = sessions.filter((session) => (session.loggedBy || "Unassigned") === username);
+      const userRecentSessions = userSessions.filter((session) => session.date >= frequencyBoundary);
+
+      return {
+        username,
+        totalSessions: userSessions.length,
+        recentSessions: userRecentSessions.length,
+        sessionsPerWeek: userRecentSessions.length / (SESSION_FREQUENCY_WINDOW_DAYS / 7),
+        lastSessionDate: userSessions[0]?.date ?? null,
+        isConfiguredUser: configuredUsernames.includes(username)
+      };
+    })
+    .filter((stat) => stat.totalSessions > 0 || stat.isConfiguredUser)
+    .sort(
+      (a, b) =>
+        b.sessionsPerWeek - a.sessionsPerWeek ||
+        b.totalSessions - a.totalSessions ||
+        a.username.localeCompare(b.username)
+    );
+
+  const activeUserCount = userSessionFrequency.filter((stat) => stat.recentSessions > 0).length;
 
   const recentPRCount = [...groupedByExercise.values()].reduce(
     (sum, exercisePoints) => sum + countRecentPRs(exercisePoints),
@@ -103,14 +151,28 @@ export default async function DashboardPage() {
                 Top improving lift
               </div>
               <div className="mt-2 text-xl font-semibold">{topImprovingExercises[0]?.name ?? "No data yet"}</div>
+              {topImprovingExercises[0] && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {formatSignedPercent(topImprovingExercises[0].changePct)} since the previous logged session.
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2">
+      <section className="grid gap-4 md:grid-cols-3">
         <SummaryCard label="Total sessions" value={String(sessions.length)} helper="All logged gym sessions" />
-        <SummaryCard label="Exercises logged" value={String(groupedByExercise.size)} helper="Unique exercises tracked" />
+        <SummaryCard
+          label="Sessions/week"
+          value={formatMetric(overallSessionsPerWeek, 1)}
+          helper={`Last ${SESSION_FREQUENCY_WINDOW_DAYS} days across all users`}
+        />
+        <SummaryCard
+          label="Active users"
+          value={String(activeUserCount)}
+          helper={`Logged in the last ${SESSION_FREQUENCY_WINDOW_DAYS} days`}
+        />
       </section>
 
       <section className="grid gap-6 xl:grid-cols-2">
@@ -166,24 +228,66 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle>Top Improving Exercises</CardTitle>
-            <CardDescription>Highest projected recent 1RM from the last 30 days.</CardDescription>
+            <CardDescription>Best latest-vs-previous estimated 1RM change by exercise.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
+            {topImprovingExercises.length === 0 && (
+              <div className="rounded-2xl border border-dashed border-border/70 p-4 text-sm text-muted-foreground">
+                Log the same exercise twice to compare progress.
+              </div>
+            )}
             {topImprovingExercises.map((exercise, index) => (
               <div key={exercise.name} className="flex items-center justify-between rounded-2xl border border-border/70 p-4">
                 <div>
                   <div className="text-sm text-muted-foreground">#{index + 1}</div>
                   <div className="font-medium">{exercise.name}</div>
+                  <div className="text-sm text-muted-foreground">
+                    {exercise.previousBestSetLabel} to {exercise.latestBestSetLabel}
+                  </div>
                 </div>
                 <div className="text-right">
-                  <div className="font-medium">{formatMetric(exercise.projected1RM, 1)} kg</div>
-                  <div className="text-sm text-muted-foreground">{exercise.sessionCount} sessions</div>
+                  <div className="font-medium">{formatSignedPercent(exercise.changePct)}</div>
+                  <div className="text-sm text-muted-foreground">
+                    {exercise.latestBestEstimated1RM ? `${formatMetric(exercise.latestBestEstimated1RM, 1)} kg e1RM` : ""}
+                  </div>
                 </div>
               </div>
             ))}
           </CardContent>
         </Card>
       </section>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>User Session Frequency</CardTitle>
+          <CardDescription>Sessions per week over the last {SESSION_FREQUENCY_WINDOW_DAYS} days.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {userSessionFrequency.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-border/70 p-4 text-sm text-muted-foreground">
+              No user-level session history yet.
+            </div>
+          )}
+          {userSessionFrequency.map((stat) => (
+            <div key={stat.username} className="rounded-2xl border border-border/70 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="font-medium">{stat.username}</div>
+                  <div className="text-sm text-muted-foreground">
+                    {stat.lastSessionDate ? `Last: ${formatDate(stat.lastSessionDate)}` : "No sessions yet"}
+                  </div>
+                </div>
+                <Badge variant={stat.recentSessions > 0 ? "success" : "outline"}>
+                  {formatMetric(stat.sessionsPerWeek, 1)}/wk
+                </Badge>
+              </div>
+              <div className="mt-4 text-sm text-muted-foreground">
+                {stat.recentSessions} recent, {stat.totalSessions} total
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
     </div>
   );
 }

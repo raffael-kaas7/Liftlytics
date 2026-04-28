@@ -1,12 +1,14 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createSession } from "@/lib/data";
+import { AUTH_COOKIE_NAME, getUsernameFromSessionToken } from "@/lib/auth";
 import { workoutSessionSchema } from "@/lib/validation";
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const json = await request.json();
     const payload = workoutSessionSchema.parse(json);
-    const session = await createSession(payload);
+    const loggedBy = getUsernameFromSessionToken(request.cookies.get(AUTH_COOKIE_NAME)?.value);
+    const session = await createSession({ ...payload, loggedBy });
     return NextResponse.json({ id: session.id });
   } catch (error) {
     return NextResponse.json(

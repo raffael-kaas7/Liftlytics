@@ -123,7 +123,8 @@ export class PrismaWorkoutRepository implements WorkoutRepository {
         data: {
           date: new Date(payload.date),
           bodyWeight: payload.bodyWeight ?? undefined,
-          notes: payload.notes || undefined
+          notes: payload.notes || undefined,
+          loggedBy: payload.loggedBy || undefined
         }
       });
 
@@ -135,7 +136,8 @@ export class PrismaWorkoutRepository implements WorkoutRepository {
                 data: {
                   category: exercise.category || undefined,
                   isCompound: exercise.isCompound ?? false,
-                  includeBodyWeightInVolume: exercise.includeBodyWeightInVolume ?? false
+                  includeBodyWeightInVolume: exercise.includeBodyWeightInVolume ?? false,
+                  bodyWeightVolumeMultiplier: exercise.bodyWeightVolumeMultiplier ?? 1
                 }
               })
             ).id
@@ -145,13 +147,15 @@ export class PrismaWorkoutRepository implements WorkoutRepository {
                 update: {
                   category: exercise.category || undefined,
                   isCompound: exercise.isCompound ?? false,
-                  includeBodyWeightInVolume: exercise.includeBodyWeightInVolume ?? false
+                  includeBodyWeightInVolume: exercise.includeBodyWeightInVolume ?? false,
+                  bodyWeightVolumeMultiplier: exercise.bodyWeightVolumeMultiplier ?? 1
                 },
                 create: {
                   name: exercise.exerciseName!,
                   category: exercise.category || undefined,
                   isCompound: exercise.isCompound ?? false,
-                  includeBodyWeightInVolume: exercise.includeBodyWeightInVolume ?? false
+                  includeBodyWeightInVolume: exercise.includeBodyWeightInVolume ?? false,
+                  bodyWeightVolumeMultiplier: exercise.bodyWeightVolumeMultiplier ?? 1
                 }
               })
             ).id;
@@ -181,7 +185,7 @@ export class PrismaWorkoutRepository implements WorkoutRepository {
     return { id: session.id };
   }
 
-  async updateSession(id: string, payload: WorkoutSessionInput): Promise<{ id: string }> {
+  async updateSession(id: string, payload: WorkoutSessionInput, loggedBy?: string | null): Promise<{ id: string }> {
     await this.prisma.$transaction(async (tx) => {
       await tx.exerciseSet.deleteMany({
         where: {
@@ -195,12 +199,18 @@ export class PrismaWorkoutRepository implements WorkoutRepository {
         where: { sessionId: id }
       });
 
+      const existingSession = await tx.workoutSession.findUnique({
+        where: { id },
+        select: { loggedBy: true }
+      });
+
       await tx.workoutSession.update({
         where: { id },
         data: {
           date: new Date(payload.date),
           bodyWeight: payload.bodyWeight ?? undefined,
-          notes: payload.notes || undefined
+          notes: payload.notes || undefined,
+          loggedBy: existingSession?.loggedBy || loggedBy || payload.loggedBy || undefined
         }
       });
 
@@ -212,7 +222,8 @@ export class PrismaWorkoutRepository implements WorkoutRepository {
                 data: {
                   category: exercise.category || undefined,
                   isCompound: exercise.isCompound ?? false,
-                  includeBodyWeightInVolume: exercise.includeBodyWeightInVolume ?? false
+                  includeBodyWeightInVolume: exercise.includeBodyWeightInVolume ?? false,
+                  bodyWeightVolumeMultiplier: exercise.bodyWeightVolumeMultiplier ?? 1
                 }
               })
             ).id
@@ -222,13 +233,15 @@ export class PrismaWorkoutRepository implements WorkoutRepository {
                 update: {
                   category: exercise.category || undefined,
                   isCompound: exercise.isCompound ?? false,
-                  includeBodyWeightInVolume: exercise.includeBodyWeightInVolume ?? false
+                  includeBodyWeightInVolume: exercise.includeBodyWeightInVolume ?? false,
+                  bodyWeightVolumeMultiplier: exercise.bodyWeightVolumeMultiplier ?? 1
                 },
                 create: {
                   name: exercise.exerciseName!,
                   category: exercise.category || undefined,
                   isCompound: exercise.isCompound ?? false,
-                  includeBodyWeightInVolume: exercise.includeBodyWeightInVolume ?? false
+                  includeBodyWeightInVolume: exercise.includeBodyWeightInVolume ?? false,
+                  bodyWeightVolumeMultiplier: exercise.bodyWeightVolumeMultiplier ?? 1
                 }
               })
             ).id;

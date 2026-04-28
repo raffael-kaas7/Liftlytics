@@ -20,6 +20,7 @@ export function flattenSessionPoints(sessions: SessionWithEntries[]): WorkingSet
         reps: set.reps,
         weight: set.weight,
         includeBodyWeightInVolume: entry.exercise.includeBodyWeightInVolume,
+        bodyWeightVolumeMultiplier: entry.exercise.bodyWeightVolumeMultiplier,
         notes: set.notes,
         isWarmup: set.isWarmup
       }))
@@ -33,7 +34,8 @@ export function summarizeSession(session: SessionWithEntries) {
       .filter((set) => !set.isWarmup)
       .map((set) => ({
         set,
-        includeBodyWeightInVolume: entry.exercise.includeBodyWeightInVolume
+        includeBodyWeightInVolume: entry.exercise.includeBodyWeightInVolume,
+        bodyWeightVolumeMultiplier: entry.exercise.bodyWeightVolumeMultiplier
       }))
   );
   const totalVolume = workingSets.reduce(
@@ -43,7 +45,8 @@ export function summarizeSession(session: SessionWithEntries) {
         item.set.weight,
         item.set.reps,
         session.bodyWeight ?? 0,
-        item.includeBodyWeightInVolume
+        item.includeBodyWeightInVolume,
+        item.bodyWeightVolumeMultiplier
       ),
     0
   );

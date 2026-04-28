@@ -1,12 +1,14 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { deleteSession, updateSession } from "@/lib/data";
+import { AUTH_COOKIE_NAME, getUsernameFromSessionToken } from "@/lib/auth";
 import { workoutSessionSchema } from "@/lib/validation";
 
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const json = await request.json();
     const payload = workoutSessionSchema.parse(json);
-    await updateSession(params.id, payload);
+    const loggedBy = getUsernameFromSessionToken(request.cookies.get(AUTH_COOKIE_NAME)?.value);
+    await updateSession(params.id, payload, loggedBy);
     return NextResponse.json({ id: params.id });
   } catch (error) {
     return NextResponse.json(
@@ -18,7 +20,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(_request: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_request: NextRequest, { params }: { params: { id: string } }) {
   try {
     await deleteSession(params.id);
     return NextResponse.json({ ok: true });

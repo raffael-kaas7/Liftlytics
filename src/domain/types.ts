@@ -11,6 +11,7 @@ export type ExerciseEntryInput = {
   category?: string;
   isCompound?: boolean;
   includeBodyWeightInVolume?: boolean;
+  bodyWeightVolumeMultiplier?: number;
   notes?: string;
   orderIndex: number;
   sets: SetInput[];
@@ -20,6 +21,7 @@ export type WorkoutSessionInput = {
   date: string;
   bodyWeight?: number | null;
   notes?: string;
+  loggedBy?: string | null;
   exercises: ExerciseEntryInput[];
 };
 
@@ -29,6 +31,7 @@ export type Exercise = {
   category: string | null;
   isCompound: boolean;
   includeBodyWeightInVolume: boolean;
+  bodyWeightVolumeMultiplier: number;
   createdAt: Date;
 };
 
@@ -59,6 +62,7 @@ export type WorkoutSession = {
   date: Date;
   bodyWeight: number | null;
   notes: string | null;
+  loggedBy: string | null;
   createdAt: Date;
   updatedAt: Date;
   entries: ExerciseEntry[];
@@ -87,6 +91,7 @@ export type WorkingSetPoint = {
   reps: number;
   weight: number;
   includeBodyWeightInVolume?: boolean;
+  bodyWeightVolumeMultiplier?: number | null;
   notes?: string | null;
   isWarmup: boolean;
 };

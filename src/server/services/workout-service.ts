@@ -34,9 +34,9 @@ export class WorkoutService {
     return this.repository.createSession(parsed);
   }
 
-  updateSession(id: string, payload: WorkoutSessionInput) {
+  updateSession(id: string, payload: WorkoutSessionInput, loggedBy?: string | null) {
     const parsed = workoutSessionSchema.parse(payload);
-    return this.repository.updateSession(id, parsed);
+    return this.repository.updateSession(id, parsed, loggedBy);
   }
 
   deleteSession(id: string) {

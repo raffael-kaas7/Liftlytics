@@ -7,17 +7,23 @@ export function calculateEstimated1RM(weight: number, reps: number) {
   return weight * (1 + reps / 30);
 }
 
-export function getSetVolumeLoad(weight: number, bodyWeight = 0, includeBodyWeightInVolume = false) {
-  return weight + (includeBodyWeightInVolume ? bodyWeight : 0);
+export function getSetVolumeLoad(
+  weight: number,
+  bodyWeight = 0,
+  includeBodyWeightInVolume = false,
+  bodyWeightVolumeMultiplier = 1
+) {
+  return weight + (includeBodyWeightInVolume ? bodyWeight * bodyWeightVolumeMultiplier : 0);
 }
 
 export function calculateSetVolume(
   weight: number,
   reps: number,
   bodyWeight = 0,
-  includeBodyWeightInVolume = false
+  includeBodyWeightInVolume = false,
+  bodyWeightVolumeMultiplier = 1
 ) {
-  return getSetVolumeLoad(weight, bodyWeight, includeBodyWeightInVolume) * reps;
+  return getSetVolumeLoad(weight, bodyWeight, includeBodyWeightInVolume, bodyWeightVolumeMultiplier) * reps;
 }
 
 export type ExercisePRs = {
@@ -34,6 +40,17 @@ export type ExercisePRs = {
   weightPRCount: number;
   estimated1RMPRCount: number;
   repPRs: Array<{ weight: number; reps: number }>;
+};
+
+export type ExerciseProgress = {
+  latestDate: Date | null;
+  previousDate: Date | null;
+  latestBestEstimated1RM: number | null;
+  previousBestEstimated1RM: number | null;
+  changePct: number | null;
+  latestBestSetLabel: string | null;
+  previousBestSetLabel: string | null;
+  sessionCount: number;
 };
 
 export function deriveExercisePRs(points: WorkingSetPoint[]): ExercisePRs {
@@ -59,7 +76,8 @@ export function deriveExercisePRs(points: WorkingSetPoint[]): ExercisePRs {
       point.weight,
       point.reps,
       point.sessionBodyWeight ?? 0,
-      point.includeBodyWeightInVolume ?? false
+      point.includeBodyWeightInVolume ?? false,
+      point.bodyWeightVolumeMultiplier ?? 1
     );
 
     heaviestWeight = Math.max(heaviestWeight, point.weight);
@@ -131,6 +149,49 @@ export function deriveExercisePRs(points: WorkingSetPoint[]): ExercisePRs {
   };
 }
 
+export function deriveExerciseProgress(points: WorkingSetPoint[]): ExerciseProgress {
+  const groupedBySession = new Map<
+    string,
+    {
+      date: Date;
+      bestEstimated1RM: number;
+      bestSetLabel: string;
+    }
+  >();
+
+  for (const point of points.filter((point) => !point.isWarmup)) {
+    const estimated1RM = calculateEstimated1RM(point.weight, point.reps);
+    const existing = groupedBySession.get(point.sessionId);
+
+    if (!existing || estimated1RM > existing.bestEstimated1RM) {
+      groupedBySession.set(point.sessionId, {
+        date: point.sessionDate,
+        bestEstimated1RM: estimated1RM,
+        bestSetLabel: `${point.weight} kg x ${point.reps}`
+      });
+    }
+  }
+
+  const sessions = [...groupedBySession.values()].sort((a, b) => a.date.getTime() - b.date.getTime());
+  const latest = sessions.at(-1) ?? null;
+  const previous = sessions.at(-2) ?? null;
+  const changePct =
+    latest && previous && previous.bestEstimated1RM > 0
+      ? ((latest.bestEstimated1RM - previous.bestEstimated1RM) / previous.bestEstimated1RM) * 100
+      : null;
+
+  return {
+    latestDate: latest?.date ?? null,
+    previousDate: previous?.date ?? null,
+    latestBestEstimated1RM: latest?.bestEstimated1RM ?? null,
+    previousBestEstimated1RM: previous?.bestEstimated1RM ?? null,
+    changePct,
+    latestBestSetLabel: latest?.bestSetLabel ?? null,
+    previousBestSetLabel: previous?.bestSetLabel ?? null,
+    sessionCount: sessions.length
+  };
+}
+
 export function deriveExerciseTrendData(points: WorkingSetPoint[]) {
   const grouped = new Map<
     string,
@@ -156,7 +217,8 @@ export function deriveExerciseTrendData(points: WorkingSetPoint[]) {
       point.weight,
       point.reps,
       point.sessionBodyWeight ?? 0,
-      point.includeBodyWeightInVolume ?? false
+      point.includeBodyWeightInVolume ?? false,
+      point.bodyWeightVolumeMultiplier ?? 1
     );
     const estimated1RM = calculateEstimated1RM(point.weight, point.reps);
     if (estimated1RM > existing.bestEstimated1RM) {
@@ -189,7 +251,8 @@ export function deriveMomentumMetrics(recentPoints: WorkingSetPoint[], previousP
           point.weight,
           point.reps,
           point.sessionBodyWeight ?? 0,
-          point.includeBodyWeightInVolume ?? false
+          point.includeBodyWeightInVolume ?? false,
+          point.bodyWeightVolumeMultiplier ?? 1
         ),
       0
     );
@@ -202,7 +265,8 @@ export function deriveMomentumMetrics(recentPoints: WorkingSetPoint[], previousP
           point.weight,
           point.reps,
           point.sessionBodyWeight ?? 0,
-          point.includeBodyWeightInVolume ?? false
+          point.includeBodyWeightInVolume ?? false,
+          point.bodyWeightVolumeMultiplier ?? 1
         ),
       0
     );
@@ -326,7 +390,8 @@ export function getPRBadgesForSet(
         item.weight,
         item.reps,
         item.sessionBodyWeight ?? 0,
-        item.includeBodyWeightInVolume ?? false
+        item.includeBodyWeightInVolume ?? false,
+        item.bodyWeightVolumeMultiplier ?? 1
       )
     )
   );
@@ -347,7 +412,8 @@ export function getPRBadgesForSet(
       point.weight,
       point.reps,
       point.sessionBodyWeight ?? 0,
-      point.includeBodyWeightInVolume ?? false
+      point.includeBodyWeightInVolume ?? false,
+      point.bodyWeightVolumeMultiplier ?? 1
     ) > maxVolume
   ) {
     badges.push("Volume PR");

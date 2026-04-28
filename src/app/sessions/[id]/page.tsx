@@ -41,6 +41,7 @@ export default async function SessionDetailPage({
       category: entry.exercise.category ?? "",
       isCompound: entry.exercise.isCompound,
       includeBodyWeightInVolume: entry.exercise.includeBodyWeightInVolume,
+      bodyWeightVolumeMultiplier: entry.exercise.bodyWeightVolumeMultiplier,
       notes: entry.notes ?? "",
       orderIndex: index,
       sets: entry.sets.map((set) => ({
@@ -94,6 +95,7 @@ export default async function SessionDetailPage({
                       reps: set.reps,
                       weight: set.weight,
                       includeBodyWeightInVolume: currentEntry.exercise.includeBodyWeightInVolume,
+                      bodyWeightVolumeMultiplier: currentEntry.exercise.bodyWeightVolumeMultiplier,
                       notes: set.notes,
                       isWarmup: set.isWarmup
                     }))
@@ -119,19 +121,22 @@ export default async function SessionDetailPage({
                       reps: set.reps,
                       weight: set.weight,
                       includeBodyWeightInVolume: entry.exercise.includeBodyWeightInVolume,
+                      bodyWeightVolumeMultiplier: entry.exercise.bodyWeightVolumeMultiplier,
                       notes: set.notes,
                       isWarmup: set.isWarmup
                     };
                     const effectiveLoad = getSetVolumeLoad(
                       set.weight,
                       session.bodyWeight ?? 0,
-                      entry.exercise.includeBodyWeightInVolume
+                      entry.exercise.includeBodyWeightInVolume,
+                      entry.exercise.bodyWeightVolumeMultiplier
                     );
                     const setVolume = calculateSetVolume(
                       set.weight,
                       set.reps,
                       session.bodyWeight ?? 0,
-                      entry.exercise.includeBodyWeightInVolume
+                      entry.exercise.includeBodyWeightInVolume,
+                      entry.exercise.bodyWeightVolumeMultiplier
                     );
                     const currentIndexInHistory = historicalPoints.findIndex(
                       (historyPoint) => historyPoint.setId === point.setId
@@ -154,7 +159,8 @@ export default async function SessionDetailPage({
                           </div>
                           {entry.exercise.includeBodyWeightInVolume && session.bodyWeight !== null && (
                             <div className="text-xs text-muted-foreground">
-                              Volume uses {formatMetric(effectiveLoad, 1)} kg total load
+                              Volume uses {formatMetric(effectiveLoad, 1)} kg total load (
+                              {formatMetric(entry.exercise.bodyWeightVolumeMultiplier * 100)}% body weight)
                             </div>
                           )}
                         </div>

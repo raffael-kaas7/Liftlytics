@@ -14,6 +14,8 @@ import {
 import { getExerciseById } from "@/lib/data";
 import { formatDate, formatMetric } from "@/lib/format";
 
+export const dynamic = "force-dynamic";
+
 export default async function ExerciseDetailPage({ params }: { params: { id: string } }) {
   const exercise = await getExerciseById(params.id);
   if (!exercise) {

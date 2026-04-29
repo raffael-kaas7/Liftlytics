@@ -5,6 +5,8 @@ import { getSessions } from "@/lib/data";
 import { formatDate, formatMetric } from "@/lib/format";
 import { summarizeSession } from "@/lib/selectors";
 
+export const dynamic = "force-dynamic";
+
 export default async function SessionsPage() {
   const sessions = await getSessions();
 

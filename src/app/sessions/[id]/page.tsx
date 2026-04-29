@@ -14,6 +14,8 @@ import {
 import { getDashboardData, getExercises, getSessionById } from "@/lib/data";
 import { formatDate, formatMetric } from "@/lib/format";
 
+export const dynamic = "force-dynamic";
+
 export default async function SessionDetailPage({
   params,
   searchParams

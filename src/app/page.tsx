@@ -17,6 +17,8 @@ import { getDashboardData } from "@/lib/data";
 import { formatDate, formatMetric } from "@/lib/format";
 import { flattenSessionPoints, summarizeSession } from "@/lib/selectors";
 
+export const dynamic = "force-dynamic";
+
 const SESSION_FREQUENCY_WINDOW_DAYS = 30;
 
 function formatSignedPercent(value: number | null) {

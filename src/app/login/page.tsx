@@ -1,4 +1,4 @@
-import { Dumbbell, LineChart, LockKeyhole, ShieldCheck } from "lucide-react";
+import { Dumbbell, ExternalLink, LineChart, LockKeyhole, ShieldCheck } from "lucide-react";
 import { LoginForm } from "@/components/auth/login-form";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -47,17 +47,31 @@ export default function LoginPage() {
         </div>
       </section>
 
-      <Card className="border-primary/15 bg-card/90">
-        <CardContent className="p-6 md:p-8">
-          <div className="mb-8 space-y-2">
-            <h2 className="text-2xl font-semibold tracking-tight">Welcome back</h2>
-            <p className="text-sm text-muted-foreground">
-              Sign in to continue to your hosted Liftlytics instance.
-            </p>
-          </div>
-          <LoginForm />
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        <Card className="border-primary/15 bg-card/90">
+          <CardContent className="p-6 md:p-8">
+            <div className="mb-8 space-y-2">
+              <h2 className="text-2xl font-semibold tracking-tight">Welcome back</h2>
+              <p className="text-sm text-muted-foreground">
+                Sign in to continue to your hosted Liftlytics instance.
+              </p>
+            </div>
+            <LoginForm />
+          </CardContent>
+        </Card>
+        <p className="text-center text-sm text-muted-foreground">
+          Implemented by{" "}
+          <a
+            href="https://rkaas.de/"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 font-medium text-primary underline underline-offset-4 transition hover:text-primary/80"
+          >
+            Raffael Kaas
+            <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+          </a>
+        </p>
+      </div>
     </div>
   );
 }

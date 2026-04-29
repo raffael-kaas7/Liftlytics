@@ -5,6 +5,8 @@ import { getDashboardData, getExercises } from "@/lib/data";
 import { formatDate, formatMetric } from "@/lib/format";
 import { flattenSessionPoints } from "@/lib/selectors";
 
+export const dynamic = "force-dynamic";
+
 export default async function ExercisesPage() {
   const [exercises, sessions] = await Promise.all([getExercises(), getDashboardData()]);
   const points = flattenSessionPoints(sessions);

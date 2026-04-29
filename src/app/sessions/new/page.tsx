@@ -1,6 +1,8 @@
 import { SessionForm, type ExerciseDefaults } from "@/components/session/session-form";
 import { getDashboardData, getExercises } from "@/lib/data";
 
+export const dynamic = "force-dynamic";
+
 export default async function NewSessionPage() {
   const [exercises, sessions] = await Promise.all([getExercises(), getDashboardData()]);
   const exerciseDefaults: ExerciseDefaults = {};

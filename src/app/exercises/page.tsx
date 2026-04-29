@@ -10,21 +10,35 @@ export const dynamic = "force-dynamic";
 export default async function ExercisesPage() {
   const [exercises, sessions] = await Promise.all([getExercises(), getDashboardData()]);
   const points = flattenSessionPoints(sessions);
+  const pointsByExerciseName = new Map<string, typeof points>();
+
+  for (const point of points) {
+    const exercisePoints = pointsByExerciseName.get(point.exerciseName) ?? [];
+    exercisePoints.push(point);
+    pointsByExerciseName.set(point.exerciseName, exercisePoints);
+  }
+
+  const trainedExercises = exercises.filter((exercise) => pointsByExerciseName.has(exercise.name));
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-semibold tracking-tight">Exercise Library</h1>
-        <p className="text-muted-foreground">Browse your tracked lifts and jump into detailed analytics.</p>
+        <p className="text-muted-foreground">Browse lifts you have trained and jump into detailed analytics.</p>
       </div>
       <Card>
         <CardHeader>
-          <CardTitle>All Exercises</CardTitle>
-          <CardDescription>{exercises.length} movements available</CardDescription>
+          <CardTitle>Trained Exercises</CardTitle>
+          <CardDescription>{trainedExercises.length} movements logged at least once</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {exercises.map((exercise) => {
-            const prs = deriveExercisePRs(points.filter((point) => point.exerciseName === exercise.name));
+          {trainedExercises.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-border/70 p-4 text-sm text-muted-foreground md:col-span-2 xl:col-span-3">
+              Log your first session to build the exercise list.
+            </div>
+          )}
+          {trainedExercises.map((exercise) => {
+            const prs = deriveExercisePRs(pointsByExerciseName.get(exercise.name) ?? []);
             return (
               <Link
                 key={exercise.id}

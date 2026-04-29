@@ -16,7 +16,7 @@ export function LogoutButton() {
   }
 
   return (
-    <Button variant="ghost" size="sm" onClick={logout}>
+    <Button variant="ghost" size="sm" onClick={logout} aria-label="Logout">
       <LogOut className="h-4 w-4" />
       <span className="hidden lg:inline">Logout</span>
     </Button>

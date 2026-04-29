@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { subDays } from "date-fns";
-import { ArrowRight, Flame, TrendingUp } from "lucide-react";
+import { Activity, ArrowRight, CalendarDays, Flame, Quote, TrendingUp, Users } from "lucide-react";
 import { ChartCard } from "@/components/charts/chart-card";
 import { SummaryCard } from "@/components/dashboard/summary-card";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +21,42 @@ export const dynamic = "force-dynamic";
 
 const SESSION_FREQUENCY_WINDOW_DAYS = 30;
 
+const dailyMotivations = [
+  {
+    quote: "You cannot improve what you do not measure.",
+    cite: "Measure the work, then move the target."
+  },
+  {
+    quote: "Every logged set is a signal for the next stronger session.",
+    cite: "Progress gets easier to see when the details are written down."
+  },
+  {
+    quote: "Lift with intent today, review with honesty tomorrow.",
+    cite: "Momentum comes from focused training and clear feedback."
+  },
+  {
+    quote: "The best plan is the one your last workout can actually inform.",
+    cite: "Useful data turns effort into direction."
+  },
+  {
+    quote: "Train hard enough to adapt, log fast enough to stay focused.",
+    cite: "The workout stays first, the journal keeps it accountable."
+  },
+  {
+    quote: "A plateau is less mysterious when the numbers are visible.",
+    cite: "Find the pattern, then change the stimulus."
+  },
+  {
+    quote: "Small progress compounds when you catch it before it disappears.",
+    cite: "Your next personal record starts as a logged detail."
+  }
+];
+
+function getDailyMotivation() {
+  const dayIndex = Math.floor(Date.now() / 86_400_000) % dailyMotivations.length;
+  return dailyMotivations[dayIndex];
+}
+
 function formatSignedPercent(value: number | null) {
   if (value === null) {
     return "No comparison";
@@ -31,6 +67,7 @@ function formatSignedPercent(value: number | null) {
 
 export default async function DashboardPage() {
   const sessions = await getDashboardData();
+  const dailyMotivation = getDailyMotivation();
   const points = flattenSessionPoints(sessions);
   const configuredUsernames = getConfiguredUsernames();
   const frequencyBoundary = subDays(new Date(), SESSION_FREQUENCY_WINDOW_DAYS);
@@ -104,17 +141,27 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <section className="grid gap-6 lg:grid-cols-[1.3fr,0.7fr]">
+      <section>
         <Card className="overflow-hidden border-primary/15 bg-gradient-to-br from-primary/10 via-card to-card">
           <CardContent className="flex h-full flex-col justify-between gap-8 p-8">
             <div className="space-y-4">
               <Badge variant="success" className="w-fit">Daily Strength Tracking</Badge>
-              <div className="space-y-2">
-                <h1 className="max-w-2xl text-4xl font-semibold tracking-tight text-balance">Log fast. Train hard. Track your Progress.</h1>
-                <p className="max-w-2xl text-base text-muted-foreground">
-                  Track your training with Liftlytics to verify progressive overloading. See KPIs that support your training and recovery:
-                  volume, estimated 1RM, PRs, and momentum.
-                </p>
+              <div className="space-y-5">
+                <h1 className="max-w-2xl text-4xl font-semibold tracking-tight text-balance">
+                  Train hard. Log fast. Track your progress.
+                </h1>
+                <blockquote className="max-w-3xl border-l-4 border-primary pl-5">
+                  <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-primary">
+                    <Quote className="h-4 w-4" />
+                    Daily motivation
+                  </div>
+                  <p className="text-2xl font-semibold leading-tight text-foreground text-balance md:text-3xl">
+                    &ldquo;{dailyMotivation.quote}&rdquo;
+                  </p>
+                  <cite className="mt-3 block text-sm not-italic text-muted-foreground">
+                    {dailyMotivation.cite}
+                  </cite>
+                </blockquote>
               </div>
             </div>
             <div className="flex flex-wrap gap-3">
@@ -130,50 +177,36 @@ export default async function DashboardPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Training Snapshot</CardTitle>
-            <CardDescription>Working-set analytics from your hosted training log.</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4">
-            <div className="rounded-2xl border border-border/70 bg-muted/40 p-4">
-              <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                <Flame className="h-4 w-4 text-primary" />
-                Recent PR count
-              </div>
-              <div className="mt-2 text-3xl font-semibold">{recentPRCount}</div>
-              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                Counts weight and estimated 1RM PRs set in the last {RECENT_PR_WINDOW_DAYS} days, measured against each
-                exercise&apos;s full prior history. Warm-up sets are excluded.
-              </p>
-            </div>
-            <div className="rounded-2xl border border-border/70 bg-muted/40 p-4">
-              <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                <TrendingUp className="h-4 w-4 text-chart-2" />
-                Top improving lift
-              </div>
-              <div className="mt-2 text-xl font-semibold">{topImprovingExercises[0]?.name ?? "No data yet"}</div>
-              {topImprovingExercises[0] && (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {formatSignedPercent(topImprovingExercises[0].changePct)} since the previous logged session.
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-3">
-        <SummaryCard label="Total sessions" value={String(sessions.length)} helper="All logged gym sessions" />
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <SummaryCard
+          label="Total sessions"
+          value={String(sessions.length)}
+          helper="All logged gym sessions"
+          icon={CalendarDays}
+          iconClassName="bg-chart-3/10 text-chart-3"
+        />
         <SummaryCard
           label="Sessions/week"
           value={formatMetric(overallSessionsPerWeek, 1)}
           helper={`Last ${SESSION_FREQUENCY_WINDOW_DAYS} days across all users`}
+          icon={Activity}
+          iconClassName="bg-chart-2/10 text-chart-2"
         />
         <SummaryCard
           label="Active users"
           value={String(activeUserCount)}
           helper={`Logged in the last ${SESSION_FREQUENCY_WINDOW_DAYS} days`}
+          icon={Users}
+          iconClassName="bg-chart-4/10 text-chart-4"
+        />
+        <SummaryCard
+          label="Recent PRs"
+          value={String(recentPRCount)}
+          helper={`Weight and e1RM PRs in the last ${RECENT_PR_WINDOW_DAYS} days`}
+          icon={Flame}
+          iconClassName="bg-primary/10 text-primary"
         />
       </section>
 
@@ -229,7 +262,12 @@ export default async function DashboardPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Top Improving Exercises</CardTitle>
+            <div className="flex items-center gap-3">
+              <div className="rounded-full bg-chart-2/10 p-2 text-chart-2">
+                <TrendingUp className="h-4 w-4" />
+              </div>
+              <CardTitle>Top Improving Exercises</CardTitle>
+            </div>
             <CardDescription>Best latest-vs-previous estimated 1RM change by exercise.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -248,7 +286,10 @@ export default async function DashboardPage() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="font-medium">{formatSignedPercent(exercise.changePct)}</div>
+                  <div className="flex items-center justify-end gap-1 font-medium text-chart-2">
+                    <TrendingUp className="h-4 w-4" />
+                    {formatSignedPercent(exercise.changePct)}
+                  </div>
                   <div className="text-sm text-muted-foreground">
                     {exercise.latestBestEstimated1RM ? `${formatMetric(exercise.latestBestEstimated1RM, 1)} kg e1RM` : ""}
                   </div>

@@ -29,9 +29,18 @@ export function AppShell({
             </div>
             <div>
               <div className="text-lg font-semibold tracking-tight">Liftlytics</div>
-              <div className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Strength Journal</div>
+              {!isLoginPage && (
+                <div className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
+                  Workout <span aria-hidden="true">&middot;</span> Journal <span aria-hidden="true">&middot;</span> Analytics
+                </div>
+              )}
             </div>
           </Link>
+          {!isLoginPage && (
+            <div className="flex items-center md:hidden">
+              <LogoutButton />
+            </div>
+          )}
           {!isLoginPage && (
             <div className="hidden items-center gap-2 md:flex">
               <nav className="flex items-center gap-2">

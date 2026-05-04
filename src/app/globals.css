@@ -37,6 +37,8 @@
 
   html {
     color-scheme: dark;
+    touch-action: manipulation;
+    -webkit-text-size-adjust: 100%;
   }
 
   body {
@@ -44,11 +46,37 @@
     background-image:
       radial-gradient(circle at top, rgba(249, 115, 22, 0.18), transparent 30%),
       radial-gradient(circle at bottom right, rgba(16, 185, 129, 0.12), transparent 24%);
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: none;
   }
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+}
+
+summary::-webkit-details-marker {
+  display: none;
+}
+
+button,
+a,
+input,
+textarea {
+  touch-action: manipulation;
+}
+
+@media (max-width: 767px) {
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select {
+    font-size: 16px;
   }
 }

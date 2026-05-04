@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 
 export default function LoginPage() {
   return (
-    <div className="mx-auto grid min-h-[calc(100vh-9rem)] max-w-6xl items-center gap-10 lg:grid-cols-[1.05fr,0.95fr]">
+    <div className="mx-auto grid min-h-[calc(100dvh-2.5rem)] max-w-6xl items-center gap-10 md:min-h-[calc(100dvh-4rem)] lg:grid-cols-[1.05fr,0.95fr]">
       <section className="space-y-10">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/15 text-primary">

@@ -1,14 +1,18 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div
-      className={cn("rounded-3xl border bg-card/80 text-card-foreground shadow-[0_20px_70px_-36px_rgba(0,0,0,0.8)] backdrop-blur", className)}
-      {...props}
-    />
-  );
-}
+export const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+  ({ className, ...props }, ref) => {
+    return (
+      <div
+        ref={ref}
+        className={cn("rounded-3xl border bg-card/80 text-card-foreground shadow-[0_20px_70px_-36px_rgba(0,0,0,0.8)] backdrop-blur", className)}
+        {...props}
+      />
+    );
+  }
+);
+Card.displayName = "Card";
 
 export function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return <div className={cn("flex flex-col space-y-2 p-6", className)} {...props} />;

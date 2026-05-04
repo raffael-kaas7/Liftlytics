@@ -30,10 +30,10 @@ export default async function NewSessionPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight">New Session</h1>
-        <p className="text-muted-foreground">Fast logging for your workout. Warm-up sets stay out of PR calculations.</p>
+        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">New Session</h1>
+        <p className="text-sm text-muted-foreground sm:text-base">Fast logging for your workout. Warm-up sets stay out of PR calculations.</p>
       </div>
       <SessionForm mode="create" exercises={exercises} exerciseDefaults={exerciseDefaults} />
     </div>

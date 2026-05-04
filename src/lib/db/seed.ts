@@ -18,6 +18,20 @@ export async function ensureSeedData(prisma: PrismaClient) {
     return;
   }
 
+  const seedExerciseNames = exerciseSeeds.map((exercise) => exercise.name);
+  const seededExerciseCount = await prisma.exercise.count({
+    where: {
+      name: {
+        in: seedExerciseNames
+      }
+    }
+  });
+
+  if (seededExerciseCount < seedExerciseNames.length) {
+    await seedDatabase(prisma);
+    return;
+  }
+
   const sessionCount = await prisma.workoutSession.count();
   if (sessionCount === 0) {
     await seedDatabase(prisma);

@@ -389,18 +389,19 @@ export function SessionForm({
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <Card className="rounded-2xl">
-        <CardContent className="grid gap-3 p-4 sm:gap-4 md:grid-cols-[240px,1fr] md:p-6">
-          <div className="space-y-1.5">
+      <Card className="w-full overflow-hidden rounded-2xl">
+        <CardContent className="grid w-full min-w-0 grid-cols-1 gap-3 overflow-hidden p-3 sm:gap-4 sm:p-4 md:grid-cols-[240px,1fr] md:p-6">
+          <div className="min-w-0 space-y-1.5">
             <Label htmlFor="session-date">Session date</Label>
             <Input
               id="session-date"
               type="date"
               value={form.date}
               onChange={(event) => setForm((current) => ({ ...current, date: event.target.value }))}
+              className="h-11 max-w-full appearance-none overflow-hidden px-2 text-base [inline-size:100%] [max-inline-size:100%] [min-inline-size:0] sm:text-sm"
             />
           </div>
-          <div className="space-y-1.5">
+          <div className="min-w-0 space-y-1.5">
             <Label htmlFor="session-body-weight">Body weight (kg)</Label>
             <Input
               id="session-body-weight"
@@ -418,7 +419,7 @@ export function SessionForm({
               placeholder="Optional"
             />
           </div>
-          <div className="space-y-1.5 md:col-span-2">
+          <div className="min-w-0 space-y-1.5 md:col-span-2">
             <Label htmlFor="session-notes">Session notes</Label>
             <Textarea
               id="session-notes"
@@ -439,6 +440,12 @@ export function SessionForm({
           : exercise.exerciseName;
         const isOpen = openExerciseIndex === exerciseIndex;
         const workingSetCount = exercise.sets.filter((set) => !set.isWarmup).length;
+        const exerciseTitle = selectedExerciseName || `Exercise ${exerciseIndex + 1}`;
+        const exerciseSummary = `${exercise.sets.length} sets, ${workingSetCount} working${
+          exercise.includeBodyWeightInVolume
+            ? `, ${formatPercentInput(exercise.bodyWeightVolumeMultiplier)}% bodyweight`
+            : ""
+        }`;
 
         return (
           <Card
@@ -466,21 +473,18 @@ export function SessionForm({
                   )}
                   <span className="min-w-0">
                     <span className="flex flex-wrap items-center gap-2">
-                      <CardTitle className="text-base">Exercise {exerciseIndex + 1}</CardTitle>
+                      <CardTitle className="max-w-full truncate text-base">{exerciseTitle}</CardTitle>
                       {isOpen && (
                         <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-semibold uppercase text-primary">
                           Editing
                         </span>
                       )}
                     </span>
-                    <span className="mt-1 block truncate text-sm text-muted-foreground">
-                      {selectedExerciseName || "Choose exercise"}
-                    </span>
+                    {!selectedExerciseName && (
+                      <span className="mt-1 block text-sm text-muted-foreground">Choose exercise</span>
+                    )}
                     <span className="mt-1 block text-xs text-muted-foreground">
-                      {exercise.sets.length} sets, {workingSetCount} working
-                      {exercise.includeBodyWeightInVolume
-                        ? `, ${formatPercentInput(exercise.bodyWeightVolumeMultiplier)}% bodyweight`
-                        : ""}
+                      {exerciseSummary}
                     </span>
                   </span>
                 </button>
@@ -531,7 +535,7 @@ export function SessionForm({
               <CardContent className="space-y-4 p-4 pt-0 sm:p-6 sm:pt-0">
                 <div className="space-y-2.5">
                   <Label>Category</Label>
-                  <div className="flex gap-2 overflow-x-auto pb-1">
+                  <div className="flex flex-wrap gap-2">
                     {categories.map((category) => (
                       <button
                         key={category}
@@ -541,7 +545,7 @@ export function SessionForm({
                           updateExercise(exerciseIndex, { category });
                         }}
                         className={cn(
-                          "shrink-0 rounded-full border px-3 py-1.5 text-xs transition sm:px-4 sm:py-2 sm:text-sm",
+                          "rounded-full border px-3 py-1.5 text-xs transition sm:px-4 sm:py-2 sm:text-sm",
                           selectedCategory === category
                             ? "border-primary bg-primary/15 text-primary"
                             : "border-border text-muted-foreground hover:text-foreground"
@@ -562,16 +566,13 @@ export function SessionForm({
                         key={option.id}
                         onClick={() => selectExercise(exerciseIndex, option)}
                         className={cn(
-                          "min-h-16 rounded-2xl border p-2.5 text-left text-xs transition sm:p-3 sm:text-sm",
+                          "min-h-12 rounded-2xl border p-2.5 text-left text-xs transition sm:p-3 sm:text-sm",
                           exercise.exerciseId === option.id
                             ? "border-primary bg-primary/15 text-primary"
                             : "border-border bg-background/40 text-foreground hover:bg-muted/60"
                         )}
                       >
                         <span className="font-medium">{option.name}</span>
-                        <span className="mt-1 block text-xs text-muted-foreground">
-                          {option.isCompound ? "Compound lift" : "Accessory"}
-                        </span>
                       </button>
                     ))}
                   </div>
@@ -812,22 +813,11 @@ export function SessionForm({
       <div className="sticky bottom-20 z-20 grid grid-cols-2 gap-2 rounded-2xl border bg-card/95 p-2 shadow-2xl backdrop-blur md:bottom-4 md:flex md:justify-between md:p-4">
         <Button variant="outline" type="button" onClick={addExercise} className="h-12 md:h-10">
           <Plus className="h-4 w-4" />
-          <span className="md:hidden">New</span>
-          <span className="hidden md:inline">Add Exercise</span>
+          New Exercise
         </Button>
         <Button type="button" onClick={handleSubmit} disabled={isSaving} className="h-12 md:h-10">
           <Save className="h-4 w-4" />
-          {isSaving ? "Saving..." : mode === "create" ? (
-            <>
-              <span className="md:hidden">Save</span>
-              <span className="hidden md:inline">Save Session</span>
-            </>
-          ) : (
-            <>
-              <span className="md:hidden">Update</span>
-              <span className="hidden md:inline">Update Session</span>
-            </>
-          )}
+          {isSaving ? "Saving..." : mode === "create" ? "Finish Session" : "Save Changes"}
         </Button>
       </div>
     </div>
